@@ -27,7 +27,7 @@ const statusBadge = (s?: string) => {
 };
 
 export default function BankDashboard() {
-  const { logout } = useAuth();
+  const { logout, bankName } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState("list");
   const [data, setData] = useState<Consultation[]>([]);
@@ -45,7 +45,11 @@ export default function BankDashboard() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [list, sum] = await Promise.all([api.getBankConsultations(), api.getBankSummary()]);
+      const params = bankName ? { bank_name: bankName } : {};
+      const [list, sum] = await Promise.all([
+        api.getBankConsultations(params),
+        api.getBankSummary(bankName ?? undefined),
+      ]);
       setData(list ?? []);
       setSummary(sum ?? {});
     } catch { toast.error("데이터 로드 실패"); }
@@ -135,7 +139,7 @@ export default function BankDashboard() {
           <Badge className="bg-blue-100 text-blue-700 border-transparent">은행 상담사</Badge>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-muted-foreground">창원 힐스테이트 마크로엔</span>
+          <span className="text-sm text-muted-foreground">{bankName} · 창원 힐스테이트 마크로엔</span>
           <Button variant="outline" size="sm" onClick={() => { logout(); navigate("/login"); }}>
             <LogOut className="h-4 w-4 mr-1" /> 로그아웃
           </Button>

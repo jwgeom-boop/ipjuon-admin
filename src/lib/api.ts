@@ -90,8 +90,9 @@ export const api = {
     if (!res.ok) throw new Error('상태 변경 실패')
     return res.json()
   },
-  getBankSummary: async () => {
-    const res = await fetch(`${API_BASE_URL}/bank/summary`, { headers: HEADERS })
+  getBankSummary: async (bank_name?: string) => {
+    const query = bank_name ? `?bank_name=${encodeURIComponent(bank_name)}` : ''
+    const res = await fetch(`${API_BASE_URL}/bank/summary${query}`, { headers: HEADERS })
     if (!res.ok) throw new Error('집계 조회 실패')
     return res.json()
   },

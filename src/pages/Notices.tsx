@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { supabase } from "@/lib/supabase";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -53,18 +53,14 @@ export default function Notices() {
   const [deleteTarget, setDeleteTarget] = useState<Notice | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const [form, setForm] = useState({ category: "대출정보", title: "", content: "", is_pinned: false });
+  const [form, setForm] = useState({ category: "대출정보", title: "", content: "", pinned: false });
 
   const fetchData = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("notices")
-      .select("*")
-      .order("is_pinned", { ascending: false })
-      .order("created_at", { ascending: false });
-
-    if (error) { toast.error("데이터를 불러오는데 실패했습니다."); console.error(error); }
-    else setNotices(data ?? []);
+    try {
+      const data = await api.getNotices();
+      setNotices(data ?? []);
+    } catch { toast.error("데이터를 불러오는데 실패했습니다."); }
     setLoading(false);
   };
 
@@ -88,13 +84,13 @@ export default function Notices() {
 
   const openAddModal = () => {
     setEditNotice(null);
-    setForm({ category: "대출정보", title: "", content: "", is_pinned: false });
+    setForm({ category: "대출정보", title: "", content: "", pinned: false });
     setModalOpen(true);
   };
 
   const openEditModal = (n: Notice) => {
     setEditNotice(n);
-    setForm({ category: n.category, title: n.title, content: n.content, is_pinned: n.is_pinned });
+    setForm({ category: n.category, title: n.title, content: n.content, pinned: n.pinned });
     setModalOpen(true);
   };
 
@@ -102,27 +98,26 @@ export default function Notices() {
     if (!form.title || !form.content) { toast.error("제목과 내용을 입력해주세요."); return; }
     setSaving(true);
 
-    if (editNotice) {
-      const { error } = await supabase.from("notices").update({
-        category: form.category, title: form.title, content: form.content, is_pinned: form.is_pinned, updated_at: new Date().toISOString(),
-      }).eq("id", editNotice.id);
-      if (error) toast.error("수정에 실패했습니다.");
-      else { toast.success("공지가 수정되었습니다."); setModalOpen(false); fetchData(); }
-    } else {
-      const { error } = await supabase.from("notices").insert({
-        category: form.category, title: form.title, content: form.content, is_pinned: form.is_pinned, view_count: 0,
-      });
-      if (error) { toast.error("작성에 실패했습니다."); console.error(error); }
-      else { toast.success("공지가 작성되었습니다."); setModalOpen(false); fetchData(); }
-    }
+    try {
+      if (editNotice) {
+        await api.updateNotice(editNotice.id, { category: form.category, title: form.title, content: form.content, pinned: form.pinned });
+        toast.success("공지가 수정되었습니다.");
+      } else {
+        await api.createNotice({ category: form.category, title: form.title, content: form.content, pinned: form.pinned, viewCount: 0 });
+        toast.success("공지가 작성되었습니다.");
+      }
+      setModalOpen(false); fetchData();
+    } catch { toast.error("저장에 실패했습니다."); }
     setSaving(false);
   };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    const { error } = await supabase.from("notices").delete().eq("id", deleteTarget.id);
-    if (error) toast.error("삭제에 실패했습니다.");
-    else { toast.success("공지가 삭제되었습니다."); fetchData(); }
+    try {
+      await api.deleteNotice(deleteTarget.id);
+      toast.success("공지가 삭제되었습니다.");
+      fetchData();
+    } catch { toast.error("삭제에 실패했습니다."); }
     setDeleteTarget(null);
   };
 
@@ -181,14 +176,14 @@ export default function Notices() {
               <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">데이터가 없습니다.</TableCell></TableRow>
             ) : (
               filtered.map((n, idx) => (
-                <TableRow key={n.id} className={n.is_pinned ? "bg-red-50/50" : ""}>
+                <TableRow key={n.id} className={n.pinned ? "bg-red-50/50" : ""}>
                   <TableCell className="font-medium">{filtered.length - idx}</TableCell>
                   <TableCell>
                     <Badge className={categoryColor[n.category] || ""}>{n.category}</Badge>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      {n.is_pinned && (
+                      {n.pinned && (
                         <Badge className="border-transparent bg-red-100 text-red-600 hover:bg-red-100 gap-1">
                           <Pin className="h-3 w-3" />
                           중요
@@ -242,7 +237,7 @@ export default function Notices() {
             <div className="flex items-center gap-2">
               <Checkbox
                 id="pinned"
-                checked={form.is_pinned}
+                checked={form.pinned}
                 onCheckedChange={(checked) => setForm({ ...form, is_pinned: !!checked })}
               />
               <Label htmlFor="pinned" className="cursor-pointer">중요 공지 (상단 고정)</Label>

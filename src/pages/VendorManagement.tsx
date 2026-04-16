@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { supabase } from "@/lib/supabase";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -22,13 +22,13 @@ import { toast } from "sonner";
 
 interface Vendor {
   id: string;
-  vendor_name: string;
-  vendor_type: string;
-  login_id: string;
+  vendorName: string;
+  vendorType: string;
+  loginId: string;
   password: string;
   phone: string;
   status: string;
-  created_at: string;
+  createdAt: string;
 }
 
 const VENDOR_TYPES = ["인테리어", "이사", "인터넷·TV", "청소", "가구", "가전", "은행"];
@@ -50,12 +50,10 @@ const VendorManagement = () => {
 
   const fetchVendors = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("vendor_accounts")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (error) { toast.error("데이터 로딩 실패"); console.error(error); }
-    else setVendors(data || []);
+    try {
+      const data = await api.getVendors();
+      setVendors(data || []);
+    } catch { toast.error("데이터 로딩 실패"); }
     setLoading(false);
   };
 
@@ -63,7 +61,7 @@ const VendorManagement = () => {
 
   const filtered = useMemo(() => {
     let result = vendors;
-    if (typeFilter !== "전체") result = result.filter((v) => v.vendor_type === typeFilter);
+    if (typeFilter !== "전체") result = result.filter((v) => v.vendorType === typeFilter);
     if (statusFilter === "active") result = result.filter((v) => v.status === "active");
     if (statusFilter === "inactive") result = result.filter((v) => v.status === "inactive");
     return result;
@@ -78,7 +76,8 @@ const VendorManagement = () => {
 
   const openEditModal = (v: Vendor) => {
     setEditVendor(v);
-    setForm({ vendor_name: v.vendor_name, vendor_type: v.vendor_type, login_id: v.login_id, password: "", phone: v.phone });
+    setForm({ vendor_name: v.vendorName, vendor_type: v.vendorType, login_id: v.loginId, password: "", phone: v.phone });
+
     setResetPassword("");
     setModalOpen(true);
   };
@@ -87,36 +86,35 @@ const VendorManagement = () => {
     if (!form.vendor_name || !form.phone) { toast.error("필수 항목을 입력해주세요."); return; }
     setSaving(true);
 
-    if (editVendor) {
-      const updateData: Record<string, string> = { vendor_name: form.vendor_name, vendor_type: form.vendor_type, phone: form.phone };
-      if (resetPassword) updateData.password = resetPassword;
-      const { error } = await supabase.from("vendor_accounts").update(updateData).eq("id", editVendor.id);
-      if (error) toast.error("수정 실패");
-      else { toast.success("업체 정보가 수정되었습니다."); setModalOpen(false); fetchVendors(); }
-    } else {
-      if (!form.login_id || !form.password) { toast.error("아이디와 비밀번호를 입력해주세요."); setSaving(false); return; }
-      const { error } = await supabase.from("vendor_accounts").insert({
-        vendor_name: form.vendor_name, vendor_type: form.vendor_type,
-        login_id: form.login_id, password: form.password, phone: form.phone, status: "active",
-      });
-      if (error) { toast.error("업체 추가 실패"); console.error(error); }
-      else { toast.success("업체가 추가되었습니다."); setModalOpen(false); fetchVendors(); }
-    }
+    try {
+      if (editVendor) {
+        await api.updateVendor(editVendor.id, { vendorName: form.vendor_name, vendorType: form.vendor_type, phone: form.phone, password: resetPassword || undefined });
+        toast.success("업체 정보가 수정되었습니다.");
+      } else {
+        if (!form.login_id || !form.password) { toast.error("아이디와 비밀번호를 입력해주세요."); setSaving(false); return; }
+        await api.createVendor({ vendorName: form.vendor_name, vendorType: form.vendor_type, loginId: form.login_id, password: form.password, phone: form.phone, status: "active" });
+        toast.success("업체가 추가되었습니다.");
+      }
+      setModalOpen(false); fetchVendors();
+    } catch { toast.error("저장 실패"); }
     setSaving(false);
   };
 
   const toggleStatus = async (v: Vendor) => {
     const newStatus = v.status === "active" ? "inactive" : "active";
-    const { error } = await supabase.from("vendor_accounts").update({ status: newStatus }).eq("id", v.id);
-    if (error) toast.error("상태 변경 실패");
-    else fetchVendors();
+    try {
+      await api.toggleVendorStatus(v.id, newStatus);
+      fetchVendors();
+    } catch { toast.error("상태 변경 실패"); }
   };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    const { error } = await supabase.from("vendor_accounts").delete().eq("id", deleteTarget.id);
-    if (error) toast.error("삭제 실패");
-    else { toast.success("업체가 삭제되었습니다."); fetchVendors(); }
+    try {
+      await api.deleteVendor(deleteTarget.id);
+      toast.success("업체가 삭제되었습니다.");
+      fetchVendors();
+    } catch { toast.error("삭제 실패"); }
     setDeleteTarget(null);
   };
 
@@ -184,11 +182,11 @@ const VendorManagement = () => {
               filtered.map((v, i) => (
                 <TableRow key={v.id}>
                   <TableCell className="font-medium">{filtered.length - i}</TableCell>
-                  <TableCell>{v.vendor_name}</TableCell>
-                  <TableCell>{v.vendor_type}</TableCell>
-                  <TableCell>{v.login_id}</TableCell>
+                  <TableCell>{v.vendorName}</TableCell>
+                  <TableCell>{v.vendorType}</TableCell>
+                  <TableCell>{v.loginId}</TableCell>
                   <TableCell>{v.phone}</TableCell>
-                  <TableCell>{formatDate(v.created_at)}</TableCell>
+                  <TableCell>{formatDate(v.createdAt)}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Switch checked={v.status === "active"} onCheckedChange={() => toggleStatus(v)} />

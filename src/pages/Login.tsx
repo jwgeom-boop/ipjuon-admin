@@ -15,10 +15,11 @@ const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (login(id, password)) {
+    const success = await login(id, password);
+    if (success) {
       navigate("/dashboard");
     } else {
       setError("아이디 또는 비밀번호가 올바르지 않습니다");

@@ -1,9 +1,11 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { createContext, useContext, useState, ReactNode } from "react";
+
+const API_BASE_URL = 'https://banking-coroner-grader.ngrok-free.dev/api';
+const HEADERS = { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' };
 
 interface AuthContextType {
   isAuthenticated: boolean;
-  login: (id: string, password: string) => boolean;
+  login: (id: string, password: string) => Promise<boolean>;
   logout: () => void;
 }
 
@@ -20,12 +22,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     () => sessionStorage.getItem("admin_auth") === "true"
   );
 
-  const login = (id: string, password: string) => {
-    if (id === "123" && password === "1234") {
-      setIsAuthenticated(true);
-      sessionStorage.setItem("admin_auth", "true");
-      return true;
-    }
+  const login = async (id: string, password: string) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: HEADERS,
+        body: JSON.stringify({ username: id, password }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setIsAuthenticated(true);
+        sessionStorage.setItem("admin_auth", "true");
+        return true;
+      }
+    } catch { /* ignore */ }
     return false;
   };
 

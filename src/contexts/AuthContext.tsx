@@ -5,7 +5,8 @@ const HEADERS = { 'Content-Type': 'application/json', 'ngrok-skip-browser-warnin
 
 interface AuthContextType {
   isAuthenticated: boolean;
-  login: (id: string, password: string) => Promise<boolean>;
+  role: string | null;
+  login: (id: string, password: string) => Promise<{ success: boolean; role?: string }>;
   logout: () => void;
 }
 
@@ -21,6 +22,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(
     () => sessionStorage.getItem("admin_auth") === "true"
   );
+  const [role, setRole] = useState<string | null>(
+    () => sessionStorage.getItem("admin_role")
+  );
 
   const login = async (id: string, password: string) => {
     try {
@@ -32,20 +36,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const data = await res.json();
       if (data.success) {
         setIsAuthenticated(true);
+        setRole(data.role);
         sessionStorage.setItem("admin_auth", "true");
-        return true;
+        sessionStorage.setItem("admin_role", data.role);
+        return { success: true, role: data.role };
       }
     } catch { /* ignore */ }
-    return false;
+    return { success: false };
   };
 
   const logout = () => {
     setIsAuthenticated(false);
+    setRole(null);
     sessionStorage.removeItem("admin_auth");
+    sessionStorage.removeItem("admin_role");
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, role, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

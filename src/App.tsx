@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import ConsultationDashboard from "./pages/ConsultationDashboard";
 import VendorManagement from "./pages/VendorManagement";
 import Notices from "./pages/Notices";
+import BankDashboard from "./pages/BankDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -23,6 +24,7 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/bank" element={<BankDashboard />} />
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route element={<AdminLayout />}>
               <Route path="/dashboard" element={<Dashboard />} />

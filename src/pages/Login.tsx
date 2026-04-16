@@ -18,9 +18,13 @@ const Login = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    const success = await login(id, password);
-    if (success) {
-      navigate("/dashboard");
+    const result = await login(id, password);
+    if (result.success) {
+      if (result.role === "bank") {
+        navigate("/bank");
+      } else {
+        navigate("/dashboard");
+      }
     } else {
       setError("아이디 또는 비밀번호가 올바르지 않습니다");
     }

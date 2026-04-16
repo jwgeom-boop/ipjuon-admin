@@ -68,4 +68,31 @@ export const api = {
     const res = await fetch(`${API_BASE_URL}/vendors/${id}`, { method: 'DELETE', headers: HEADERS })
     if (!res.ok) throw new Error('업체 삭제 실패')
   },
+
+  // 은행 상담사 전용
+  getBankConsultations: async (params?: Record<string, string>) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : ''
+    const res = await fetch(`${API_BASE_URL}/bank/consultations${query}`, { headers: HEADERS })
+    if (!res.ok) throw new Error('조회 실패')
+    return res.json()
+  },
+  updateBankConsultation: async (id: string, data: object) => {
+    const res = await fetch(`${API_BASE_URL}/bank/consultations/${id}`, {
+      method: 'PUT', headers: HEADERS, body: JSON.stringify(data),
+    })
+    if (!res.ok) throw new Error('저장 실패')
+    return res.json()
+  },
+  updateBankStatus: async (id: string, loan_status: string) => {
+    const res = await fetch(`${API_BASE_URL}/bank/consultations/${id}/status`, {
+      method: 'PATCH', headers: HEADERS, body: JSON.stringify({ loan_status }),
+    })
+    if (!res.ok) throw new Error('상태 변경 실패')
+    return res.json()
+  },
+  getBankSummary: async () => {
+    const res = await fetch(`${API_BASE_URL}/bank/summary`, { headers: HEADERS })
+    if (!res.ok) throw new Error('집계 조회 실패')
+    return res.json()
+  },
 }

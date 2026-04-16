@@ -39,6 +39,18 @@ type DateRange = "all" | "today" | "week" | "month";
 
 const VENDOR_TABS = ["전체", "은행", "인테리어", "이사", "인터넷·TV", "청소", "가구", "가전"];
 
+const VENDOR_TYPE_MAP: Record<string, string> = {
+  bank: "은행",
+  interior: "인테리어",
+  moving: "이사",
+  internet: "인터넷·TV",
+  "인터넷/TV": "인터넷·TV",
+  cleaning: "청소",
+  furniture: "가구",
+  appliance: "가전",
+};
+const normalizeVendorType = (type: string) => VENDOR_TYPE_MAP[type] ?? type;
+
 export default function ConsultationDashboard() {
   const [requests, setRequests] = useState<ConsultationRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,7 +83,7 @@ export default function ConsultationDashboard() {
   const vendorCounts = useMemo(() => {
     const counts: Record<string, number> = { "전체": requests.length };
     VENDOR_TABS.forEach((t) => { if (t !== "전체") counts[t] = 0; });
-    requests.forEach((r) => { if (counts[r.vendor_type] !== undefined) counts[r.vendor_type]++; });
+    requests.forEach((r) => { const t = normalizeVendorType(r.vendor_type); if (counts[t] !== undefined) counts[t]++; });
     return counts;
   }, [requests]);
 
@@ -79,7 +91,7 @@ export default function ConsultationDashboard() {
   const vendorNames = useMemo(() => {
     if (vendorTab === "전체") return [];
     const names = new Set<string>();
-    requests.forEach((r) => { if (r.vendor_type === vendorTab) names.add(r.vendor_name); });
+    requests.forEach((r) => { if (normalizeVendorType(r.vendor_type) === vendorTab) names.add(r.vendor_name); });
     return Array.from(names).sort();
   }, [requests, vendorTab]);
 
@@ -92,7 +104,7 @@ export default function ConsultationDashboard() {
     let result = requests;
 
     if (vendorTab !== "전체") {
-      result = result.filter((r) => r.vendor_type === vendorTab);
+      result = result.filter((r) => normalizeVendorType(r.vendor_type) === vendorTab);
     }
     if (vendorNameFilter !== "all") {
       result = result.filter((r) => r.vendor_name === vendorNameFilter);

@@ -13,7 +13,6 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LogOut, RefreshCw, Download } from "lucide-react";
 import { toast } from "sonner";
-import * as XLSX from "xlsx";
 
 type Consultation = Record<string, any>;
 
@@ -96,35 +95,24 @@ export default function BankDashboard() {
     } catch { toast.error("처리 실패"); }
   };
 
-  const handleExcel = () => {
-    const rows = filtered.map((r, i) => ({
-      "순번": i + 1,
-      "담당": r.manager ?? "",
-      "전매일": r.transfer_date ?? "",
-      "구분": r.division ?? "",
-      "명의": r.ownership ?? "",
-      "고객명": r.resident_name ?? "",
-      "동": r.dong ?? "",
-      "호수": r.ho ?? "",
-      "연락처": r.resident_phone ?? "",
-      "접수일": r.receive_date ?? "",
-      "서류전달일": r.document_date ?? "",
-      "실행일": r.execution_date ?? "",
-      "대출신청금": r.loan_amount ?? "",
-      "타입": r.apt_type ?? "",
-      "상품": r.product ?? "",
-      "상환방식": r.repayment_method ?? "",
-      "기간": r.loan_period ?? "",
-      "거치": r.deferment ?? "",
-      "공동명의자": r.joint_owner_name ?? "",
-      "고객준비금": r.customer_deposit ?? "",
-      "상태": r.loan_status === "done" ? "실행완료" : r.loan_status === "cancel" ? "취소" : "대기",
-      "불비/특이사항": r.special_notes ?? "",
-    }));
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "접수리스트");
-    XLSX.writeFile(wb, `접수리스트_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  const handleExcel = async () => {
+    try {
+      const query = bankName ? `?bank_name=${encodeURIComponent(bankName)}` : '';
+      const res = await fetch(
+        `https://banking-coroner-grader.ngrok-free.dev/api/bank/consultations/excel${query}`,
+        { headers: { 'ngrok-skip-browser-warning': 'true' } }
+      );
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `접수리스트_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error('엑셀 다운로드 실패');
+    }
   };
 
   const f = (key: string) => form[key] ?? "";
@@ -297,6 +285,7 @@ export default function BankDashboard() {
                   {[
                     { label: "담당", key: "manager" },
                     { label: "전매일", key: "transfer_date" },
+                    { label: "주민등록번호", key: "resident_no" },
                     { label: "동", key: "dong" },
                     { label: "호수", key: "ho" },
                     { label: "타입", key: "apt_type" },

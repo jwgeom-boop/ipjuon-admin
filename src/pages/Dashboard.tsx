@@ -20,6 +20,18 @@ type RecentRequest = {
   created_at: string;
 };
 
+const VENDOR_TYPE_MAP: Record<string, string> = {
+  bank: "은행",
+  interior: "인테리어",
+  moving: "이사",
+  internet: "인터넷·TV",
+  "인터넷/TV": "인터넷·TV",
+  cleaning: "청소",
+  furniture: "가구",
+  appliance: "가전",
+};
+const normalizeVendorType = (type: string) => VENDOR_TYPE_MAP[type] ?? type;
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const [todayCount, setTodayCount] = useState(0);
@@ -116,7 +128,7 @@ const Dashboard = () => {
                     <TableRow key={r.id}>
                       <TableCell className="font-medium text-xs md:text-sm">{r.resident_name}</TableCell>
                       <TableCell className="text-xs md:text-sm">{r.vendor_name}</TableCell>
-                      <TableCell className="text-xs md:text-sm hidden sm:table-cell">{r.vendor_type}</TableCell>
+                      <TableCell className="text-xs md:text-sm hidden sm:table-cell">{normalizeVendorType(r.vendor_type)}</TableCell>
                       <TableCell className="text-xs md:text-sm hidden md:table-cell">{r.preferred_time}</TableCell>
                       <TableCell>
                         <Badge

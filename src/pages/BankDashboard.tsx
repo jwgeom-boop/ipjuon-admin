@@ -136,7 +136,7 @@ export default function BankDashboard() {
       const query = bankName ? `?bank_name=${encodeURIComponent(bankName)}` : '';
       const res = await fetch(
         `https://banking-coroner-grader.ngrok-free.dev/api/bank/consultations/excel${query}`,
-        { headers: { 'ngrok-skip-browser-warning': 'true' } }
+        { headers: { 'ngrok-skip-browser-warning': 'true', Authorization: `Bearer ${sessionStorage.getItem('auth_token')}` } }
       );
       if (!res.ok) throw new Error();
       const blob = await res.blob();

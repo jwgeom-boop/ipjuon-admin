@@ -123,6 +123,15 @@ export default function ConsultationDashboard() {
     return counts;
   }, [requests]);
 
+  const stats = useMemo(() => {
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const todayCount = requests.filter(r => new Date(r.created_at) >= todayStart).length;
+    const pendingCount = requests.filter(r => r.status === "대기중").length;
+    const doneCount = requests.filter(r => r.status === "처리완료").length;
+    return { total: requests.length, today: todayCount, pending: pendingCount, done: doneCount };
+  }, [requests]);
+
   // Dynamic vendor names for the selected tab
   const vendorNames = useMemo(() => {
     if (vendorTab === "전체") return [];
@@ -237,6 +246,42 @@ export default function ConsultationDashboard() {
           </Button>
         </div>
       </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: "전체 신청", value: stats.total, color: "bg-blue-50 border-blue-200 text-blue-700" },
+          { label: "오늘 신청", value: stats.today, color: "bg-purple-50 border-purple-200 text-purple-700" },
+          { label: "대기중", value: stats.pending, color: "bg-yellow-50 border-yellow-200 text-yellow-700" },
+          { label: "처리완료", value: stats.done, color: "bg-green-50 border-green-200 text-green-700" },
+        ].map(({ label, value, color }) => (
+          <div key={label} className={`rounded-lg border p-3 ${color}`}>
+            <p className="text-xs font-medium opacity-70">{label}</p>
+            <p className="text-2xl font-bold mt-1">{value}<span className="text-sm font-normal ml-1">건</span></p>
+          </div>
+        ))}
+      </div>
+
+      {/* Vendor Type Breakdown */}
+      {requests.length > 0 && (
+        <div className="rounded-lg border bg-card p-3">
+          <p className="text-xs font-medium text-muted-foreground mb-2">업체유형별 현황</p>
+          <div className="space-y-1.5">
+            {VENDOR_TABS.filter(t => t !== "전체" && (vendorCounts[t] ?? 0) > 0).map(tab => (
+              <div key={tab} className="flex items-center gap-2 text-xs">
+                <span className="w-20 text-muted-foreground shrink-0">{tab}</span>
+                <div className="flex-1 bg-muted rounded-full h-2">
+                  <div
+                    className="h-2 rounded-full"
+                    style={{ width: `${(vendorCounts[tab] / requests.length) * 100}%`, backgroundColor: "#1E3A5F" }}
+                  />
+                </div>
+                <span className="w-8 text-right font-medium">{vendorCounts[tab]}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Vendor Type Tabs */}
       <div className="overflow-x-auto -mx-2 px-2">

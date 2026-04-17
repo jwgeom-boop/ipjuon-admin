@@ -3,6 +3,8 @@ import { useEffect, useState, useMemo } from "react";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -13,13 +15,26 @@ import {
 } from "@/components/ui/table";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
-  DialogDescription,
+  DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import BankDetailModal from "@/components/BankDetailModal";
-import { RefreshCw, Download } from "lucide-react";
+import { RefreshCw, Download, Plus } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
+
+const VENDOR_TYPES = ["은행", "인테리어", "이사", "인터넷·TV", "청소", "가구", "가전"];
+const BANK_NAMES = ["신한은행", "하나은행", "KB국민은행", "우리은행", "NH농협은행", "IBK기업은행", "부산은행", "대구은행"];
+
+const EMPTY_FORM = {
+  resident_name: "",
+  resident_phone: "",
+  vendor_type: "",
+  vendor_name: "",
+  complex_name: "창원 힐스테이트 마크로엔",
+  preferred_time: "오전",
+  status: "대기중",
+};
 
 type ConsultationRequest = {
   id: string;
@@ -61,6 +76,27 @@ export default function ConsultationDashboard() {
   const [memo, setMemo] = useState("");
   const [updating, setUpdating] = useState(false);
   const [vendorNameFilter, setVendorNameFilter] = useState("all");
+  const [registerOpen, setRegisterOpen] = useState(false);
+  const [regForm, setRegForm] = useState<Record<string, string>>(EMPTY_FORM);
+  const [registering, setRegistering] = useState(false);
+
+  const setReg = (key: string, val: string) => setRegForm(prev => ({ ...prev, [key]: val }));
+
+  const handleRegister = async () => {
+    if (!regForm.resident_name.trim()) { toast.error("고객명을 입력해주세요."); return; }
+    if (!regForm.resident_phone.trim()) { toast.error("연락처를 입력해주세요."); return; }
+    if (!regForm.vendor_type) { toast.error("업체유형을 선택해주세요."); return; }
+    if (!regForm.vendor_name.trim()) { toast.error("업체명을 입력해주세요."); return; }
+    setRegistering(true);
+    try {
+      await api.createConsultation(regForm);
+      toast.success("상담 신청이 등록되었습니다.");
+      setRegisterOpen(false);
+      setRegForm(EMPTY_FORM);
+      fetchData();
+    } catch { toast.error("등록에 실패했습니다."); }
+    setRegistering(false);
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -185,6 +221,11 @@ export default function ConsultationDashboard() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         <h1 className="text-xl md:text-2xl font-bold">상담신청 관리</h1>
         <div className="flex gap-2">
+          <Button size="sm" onClick={() => setRegisterOpen(true)} className="text-xs md:text-sm">
+            <Plus className="mr-1 md:mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">수동 등록</span>
+            <span className="sm:hidden">등록</span>
+          </Button>
           <Button variant="outline" size="sm" onClick={handleExcelDownload} className="text-xs md:text-sm">
             <Download className="mr-1 md:mr-2 h-4 w-4" />
             <span className="hidden sm:inline">엑셀 다운로드</span>
@@ -327,6 +368,63 @@ export default function ConsultationDashboard() {
           </TableBody>
         </Table>
       </div>
+
+      {/* 수동 등록 Dialog */}
+      <Dialog open={registerOpen} onOpenChange={setRegisterOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>상담 수동 등록</DialogTitle>
+            <DialogDescription>관리자가 직접 상담 신청을 등록합니다.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 text-sm">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-muted-foreground">고객명 <span className="text-red-500">*</span></Label>
+                <Input value={regForm.resident_name} onChange={e => setReg("resident_name", e.target.value)} placeholder="홍길동" className="h-8 mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">연락처 <span className="text-red-500">*</span></Label>
+                <Input value={regForm.resident_phone} onChange={e => setReg("resident_phone", e.target.value)} placeholder="010-0000-0000" className="h-8 mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">업체유형 <span className="text-red-500">*</span></Label>
+                <Select value={regForm.vendor_type} onValueChange={v => setReg("vendor_type", v)}>
+                  <SelectTrigger className="h-8 mt-1"><SelectValue placeholder="선택" /></SelectTrigger>
+                  <SelectContent>{VENDOR_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">업체명 <span className="text-red-500">*</span></Label>
+                {regForm.vendor_type === "은행" ? (
+                  <Select value={regForm.vendor_name} onValueChange={v => setReg("vendor_name", v)}>
+                    <SelectTrigger className="h-8 mt-1"><SelectValue placeholder="은행 선택" /></SelectTrigger>
+                    <SelectContent>{BANK_NAMES.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}</SelectContent>
+                  </Select>
+                ) : (
+                  <Input value={regForm.vendor_name} onChange={e => setReg("vendor_name", e.target.value)} placeholder="업체명 입력" className="h-8 mt-1" />
+                )}
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">단지명</Label>
+                <Input value={regForm.complex_name} onChange={e => setReg("complex_name", e.target.value)} className="h-8 mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">희망시간</Label>
+                <Select value={regForm.preferred_time} onValueChange={v => setReg("preferred_time", v)}>
+                  <SelectTrigger className="h-8 mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["오전", "오후", "저녁"].map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => { setRegisterOpen(false); setRegForm(EMPTY_FORM); }}>취소</Button>
+            <Button onClick={handleRegister} disabled={registering}>{registering ? "등록 중..." : "등록"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Detail Modal */}
       <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>

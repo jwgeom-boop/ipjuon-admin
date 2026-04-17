@@ -7,6 +7,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   role: string | null;
   bankName: string | null;
+  loginId: string | null;
   login: (id: string, password: string) => Promise<{ success: boolean; role?: string; bank_name?: string }>;
   logout: () => void;
 }
@@ -29,6 +30,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [bankName, setBankName] = useState<string | null>(
     () => sessionStorage.getItem("bank_name")
   );
+  const [loginId, setLoginId] = useState<string | null>(
+    () => sessionStorage.getItem("login_id")
+  );
 
   const login = async (id: string, password: string) => {
     try {
@@ -41,8 +45,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (data.success) {
         setIsAuthenticated(true);
         setRole(data.role);
+        setLoginId(id);
         sessionStorage.setItem("admin_auth", "true");
         sessionStorage.setItem("admin_role", data.role);
+        sessionStorage.setItem("login_id", id);
         if (data.bank_name) {
           setBankName(data.bank_name);
           sessionStorage.setItem("bank_name", data.bank_name);
@@ -57,13 +63,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsAuthenticated(false);
     setRole(null);
     setBankName(null);
+    setLoginId(null);
     sessionStorage.removeItem("admin_auth");
     sessionStorage.removeItem("admin_role");
     sessionStorage.removeItem("bank_name");
+    sessionStorage.removeItem("login_id");
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, role, bankName, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, role, bankName, loginId, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

@@ -12,6 +12,16 @@ export const api = {
     return res.json()
   },
 
+  createConsultation: async (data: object) => {
+    const res = await fetch(`${API_BASE_URL}/consultation`, {
+      method: 'POST',
+      headers: HEADERS,
+      body: JSON.stringify(data),
+    })
+    if (!res.ok) throw new Error('등록 실패')
+    return res.json()
+  },
+
   updateConsultation: async (id: string, data: object) => {
     const res = await fetch(`${API_BASE_URL}/consultation/${id}`, {
       method: 'PATCH',
@@ -67,6 +77,17 @@ export const api = {
   deleteVendor: async (id: string) => {
     const res = await fetch(`${API_BASE_URL}/vendors/${id}`, { method: 'DELETE', headers: HEADERS })
     if (!res.ok) throw new Error('업체 삭제 실패')
+  },
+
+  // 비밀번호 변경
+  changePassword: async (loginId: string, currentPassword: string, newPassword: string) => {
+    const res = await fetch(`${API_BASE_URL}/auth/change-password`, {
+      method: 'POST',
+      headers: HEADERS,
+      body: JSON.stringify({ loginId, currentPassword, newPassword }),
+    })
+    if (!res.ok) throw new Error('비밀번호 변경 실패')
+    return res.json()
   },
 
   // 은행 상담사 전용

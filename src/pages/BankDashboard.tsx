@@ -8,16 +8,28 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LogOut, RefreshCw, Download } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { CalendarIcon, LogOut, RefreshCw, Download, KeyRound } from "lucide-react";
+import { format } from "date-fns";
+import { ko } from "date-fns/locale";
 import { toast } from "sonner";
 
 type Consultation = Record<string, any>;
 
 const formatMoney = (v?: number | null) =>
   v ? (v / 10000).toLocaleString("ko-KR") + "만원" : "-";
+
+// 금액 입력 → 콤마 포맷
+const formatAmountInput = (v: string) => {
+  const num = v.replace(/[^0-9]/g, "");
+  return num ? Number(num).toLocaleString("ko-KR") : "";
+};
+const parseAmount = (v: string) => Number(v.replace(/[^0-9]/g, "")) || 0;
 
 const statusBadge = (s?: string) => {
   if (s === "done") return <Badge className="bg-green-100 text-green-800 border-transparent hover:bg-green-100">실행완료</Badge>;
@@ -26,7 +38,7 @@ const statusBadge = (s?: string) => {
 };
 
 export default function BankDashboard() {
-  const { logout, bankName } = useAuth();
+  const { logout, bankName, loginId } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState("list");
   const [data, setData] = useState<Consultation[]>([]);
@@ -35,6 +47,29 @@ export default function BankDashboard() {
   const [selected, setSelected] = useState<Consultation | null>(null);
   const [form, setForm] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  const [pwOpen, setPwOpen] = useState(false);
+  const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
+  const [pwSaving, setPwSaving] = useState(false);
+
+  const handleChangePw = async () => {
+    if (!pwForm.current) { toast.error("현재 비밀번호를 입력해주세요."); return; }
+    if (pwForm.next.length < 6) { toast.error("새 비밀번호는 6자 이상이어야 합니다."); return; }
+    if (pwForm.next !== pwForm.confirm) { toast.error("새 비밀번호가 일치하지 않습니다."); return; }
+    if (!loginId) { toast.error("로그인 정보가 없습니다."); return; }
+    setPwSaving(true);
+    try {
+      const res = await api.changePassword(loginId, pwForm.current, pwForm.next);
+      if (res.success) {
+        toast.success("비밀번호가 변경되었습니다.");
+        setPwOpen(false);
+        setPwForm({ current: "", next: "", confirm: "" });
+      } else {
+        toast.error(res.message ?? "비밀번호 변경 실패");
+      }
+    } catch { toast.error("비밀번호 변경 실패"); }
+    setPwSaving(false);
+  };
 
   // 필터
   const [divFilter, setDivFilter] = useState("전체");
@@ -90,6 +125,7 @@ export default function BankDashboard() {
     try {
       await api.updateBankStatus(selected.id, "cancel");
       toast.success("취소 처리되었습니다.");
+      setCancelConfirmOpen(false);
       setSelected(null);
       fetchData();
     } catch { toast.error("처리 실패"); }
@@ -128,6 +164,9 @@ export default function BankDashboard() {
         </div>
         <div className="flex items-center gap-3">
           <span className="text-sm text-muted-foreground">{bankName} · 창원 힐스테이트 마크로엔</span>
+          <Button variant="outline" size="sm" onClick={() => setPwOpen(true)}>
+            <KeyRound className="h-4 w-4 mr-1" /> 비밀번호 변경
+          </Button>
           <Button variant="outline" size="sm" onClick={() => { logout(); navigate("/login"); }}>
             <LogOut className="h-4 w-4 mr-1" /> 로그아웃
           </Button>
@@ -257,6 +296,74 @@ export default function BankDashboard() {
         )}
       </div>
 
+      {/* 비밀번호 변경 다이얼로그 */}
+      <Dialog open={pwOpen} onOpenChange={(o) => { setPwOpen(o); if (!o) setPwForm({ current: "", next: "", confirm: "" }); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>비밀번호 변경</DialogTitle>
+            <DialogDescription>현재 비밀번호를 확인 후 새 비밀번호로 변경합니다.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <div>
+              <Label className="text-xs text-muted-foreground">현재 비밀번호</Label>
+              <Input
+                type="password"
+                value={pwForm.current}
+                onChange={e => setPwForm(p => ({ ...p, current: e.target.value }))}
+                className="h-8 mt-1"
+                placeholder="현재 비밀번호 입력"
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">새 비밀번호 (6자 이상)</Label>
+              <Input
+                type="password"
+                value={pwForm.next}
+                onChange={e => setPwForm(p => ({ ...p, next: e.target.value }))}
+                className="h-8 mt-1"
+                placeholder="새 비밀번호 입력"
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">새 비밀번호 확인</Label>
+              <Input
+                type="password"
+                value={pwForm.confirm}
+                onChange={e => setPwForm(p => ({ ...p, confirm: e.target.value }))}
+                className="h-8 mt-1"
+                placeholder="새 비밀번호 재입력"
+                onKeyDown={e => e.key === "Enter" && handleChangePw()}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setPwOpen(false)}>취소</Button>
+            <Button onClick={handleChangePw} disabled={pwSaving}>
+              {pwSaving ? "변경 중..." : "변경"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 취소처리 확인 팝업 */}
+      <AlertDialog open={cancelConfirmOpen} onOpenChange={setCancelConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>취소 처리하시겠습니까?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <span className="font-semibold text-foreground">{selected?.resident_name}</span> 고객의 대출 접수를 취소 처리합니다.<br />
+              이 작업은 되돌리기 어렵습니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>돌아가기</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCancel} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              취소처리 확인
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* 상세 패널 */}
       <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -327,24 +434,48 @@ export default function BankDashboard() {
                   </div>
                   <div>
                     <Label className="text-xs text-muted-foreground">대출신청금 (원)</Label>
-                    <Input type="number" value={f("loan_amount")} onChange={e => set("loan_amount", Number(e.target.value))} className="h-8 text-sm mt-1" />
+                    <Input
+                      value={f("loan_amount") ? Number(f("loan_amount")).toLocaleString("ko-KR") : ""}
+                      onChange={e => set("loan_amount", parseAmount(e.target.value))}
+                      placeholder="예: 350,000,000"
+                      className="h-8 text-sm mt-1"
+                    />
                   </div>
                   <div>
                     <Label className="text-xs text-muted-foreground">고객준비금 (원)</Label>
-                    <Input type="number" value={f("customer_deposit")} onChange={e => set("customer_deposit", Number(e.target.value))} className="h-8 text-sm mt-1" />
+                    <Input
+                      value={f("customer_deposit") ? Number(f("customer_deposit")).toLocaleString("ko-KR") : ""}
+                      onChange={e => set("customer_deposit", parseAmount(e.target.value))}
+                      placeholder="예: 10,000,000"
+                      className="h-8 text-sm mt-1"
+                    />
                   </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">접수일</Label>
-                    <Input type="date" value={f("receive_date")} onChange={e => set("receive_date", e.target.value)} className="h-8 text-sm mt-1" />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">서류전달일</Label>
-                    <Input type="date" value={f("document_date")} onChange={e => set("document_date", e.target.value)} className="h-8 text-sm mt-1" />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">실행일</Label>
-                    <Input type="date" value={f("execution_date")} onChange={e => set("execution_date", e.target.value)} className="h-8 text-sm mt-1" />
-                  </div>
+                  {[
+                    { label: "접수일", key: "receive_date" },
+                    { label: "서류전달일", key: "document_date" },
+                    { label: "실행일", key: "execution_date" },
+                  ].map(({ label, key }) => (
+                    <div key={key}>
+                      <Label className="text-xs text-muted-foreground">{label}</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="w-full h-8 text-sm mt-1 justify-start font-normal">
+                            <CalendarIcon className="mr-2 h-3 w-3 text-muted-foreground" />
+                            {f(key) ? f(key) : <span className="text-muted-foreground">날짜 선택</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={f(key) ? new Date(f(key)) : undefined}
+                            onSelect={(date) => set(key, date ? format(date, "yyyy-MM-dd") : "")}
+                            locale={ko}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -396,7 +527,7 @@ export default function BankDashboard() {
 
               {/* 버튼 */}
               <div className="flex justify-between border-t pt-4">
-                <Button variant="destructive" size="sm" onClick={handleCancel}>취소처리</Button>
+                <Button variant="destructive" size="sm" onClick={() => setCancelConfirmOpen(true)}>취소처리</Button>
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={() => setSelected(null)}>닫기</Button>
                   <Button onClick={handleSave} disabled={saving}>{saving ? "저장 중..." : "저장"}</Button>

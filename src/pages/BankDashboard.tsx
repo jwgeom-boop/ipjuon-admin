@@ -14,10 +14,12 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, LogOut, RefreshCw, Download, KeyRound } from "lucide-react";
+import { CalendarIcon, LogOut, RefreshCw, Download, KeyRound, Search, FileText, AlertTriangle, CalendarDays, Printer } from "lucide-react";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { toast } from "sonner";
+import { Checkbox } from "@/components/ui/checkbox";
+import { BarChart, Bar, XAxis, YAxis, Tooltip as ReTooltip, ResponsiveContainer, LineChart, Line, CartesianGrid, Legend } from "recharts";
 
 type Consultation = Record<string, any>;
 
@@ -40,7 +42,7 @@ const statusBadge = (s?: string) => {
 export default function BankDashboard() {
   const { logout, bankName, loginId } = useAuth();
   const navigate = useNavigate();
-  const [tab, setTab] = useState("list");
+  const [tab, setTab] = useState("today");
   const [data, setData] = useState<Consultation[]>([]);
   const [summary, setSummary] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
@@ -71,10 +73,13 @@ export default function BankDashboard() {
     setPwSaving(false);
   };
 
-  // 필터
+  // 필터 + 검색
   const [divFilter, setDivFilter] = useState("전체");
   const [ownFilter, setOwnFilter] = useState("전체");
   const [statusFilter, setStatusFilter] = useState("전체");
+  const [search, setSearch] = useState("");
+  // 요청서 생성용 선택
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const fetchData = async () => {
     setLoading(true);
@@ -100,8 +105,105 @@ export default function BankDashboard() {
       const map: Record<string, string> = { "대기": "wait", "실행완료": "done", "취소": "cancel" };
       result = result.filter(r => (r.loan_status ?? "wait") === map[statusFilter]);
     }
+    if (search.trim()) {
+      const s = search.trim().toLowerCase();
+      result = result.filter(r =>
+        (r.resident_name || "").toLowerCase().includes(s) ||
+        (r.resident_phone || "").includes(s) ||
+        String(r.dong || "").includes(s) ||
+        String(r.ho || "").includes(s)
+      );
+    }
     return result;
-  }, [data, divFilter, ownFilter, statusFilter]);
+  }, [data, divFilter, ownFilter, statusFilter, search]);
+
+  // 오늘 할 일 필터
+  const todayTasks = useMemo(() => {
+    const todayStr = format(new Date(), "yyyy-MM-dd");
+    const weekEnd = new Date(); weekEnd.setDate(weekEnd.getDate() + 7);
+    const todayExec = data.filter(r => r.execution_date === todayStr && r.loan_status !== "cancel");
+    const docMissing = data.filter(r => !r.document_date && r.loan_status !== "cancel" && r.receive_date);
+    const weekExec = data
+      .filter(r => {
+        if (!r.execution_date || r.loan_status === "cancel") return false;
+        const ed = new Date(r.execution_date);
+        return ed >= new Date(new Date().toDateString()) && ed < weekEnd;
+      })
+      .sort((a, b) => (a.execution_date || "").localeCompare(b.execution_date || ""));
+    return { todayExec, docMissing, weekExec };
+  }, [data]);
+
+  // 일별 트렌드 데이터 (최근 30일)
+  const dailyTrend = useMemo(() => {
+    const map = new Map<string, { date: string; receive: number; execute: number }>();
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const key = format(d, "yyyy-MM-dd");
+      map.set(key, { date: format(d, "M/d"), receive: 0, execute: 0 });
+    }
+    data.forEach(r => {
+      if (r.loan_status === "cancel") return;
+      if (r.receive_date && map.has(r.receive_date)) map.get(r.receive_date)!.receive += 1;
+      if (r.execution_date && map.has(r.execution_date)) map.get(r.execution_date)!.execute += 1;
+    });
+    return Array.from(map.values());
+  }, [data]);
+
+  // 월별 실행예정 (당월 포함 향후 3개월)
+  const monthlyExec = useMemo(() => {
+    const result: Array<{ label: string; count: number; amount: number }> = [];
+    for (let i = 0; i < 4; i++) {
+      const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() + i);
+      const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const monthRows = data.filter(r => r.execution_date && r.execution_date.startsWith(ym) && r.loan_status !== "cancel");
+      result.push({
+        label: `${d.getMonth() + 1}월`,
+        count: monthRows.length,
+        amount: monthRows.reduce((sum, r) => sum + (r.loan_amount || 0), 0),
+      });
+    }
+    return result;
+  }, [data]);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const clearSelection = () => setSelectedIds(new Set());
+  const selectAllVisible = () => setSelectedIds(new Set(filtered.map(r => r.id)));
+
+  const openRequestDoc = (kind: "balance" | "interim") => {
+    if (selectedIds.size === 0) { toast.error("고객을 먼저 선택해주세요."); return; }
+    const rows = data.filter(r => selectedIds.has(r.id));
+    sessionStorage.setItem("bank_request_doc_payload", JSON.stringify({
+      bankName: bankName || "",
+      complexFullName: summary.complex_full_name || summary.complex_name || "",
+      bankManager: summary.bank_manager || "",
+      bankPhone: summary.bank_phone || "",
+      bankFax: summary.bank_fax || "",
+      rows: rows.map(r => ({
+        resident_name: r.resident_name,
+        resident_no: r.resident_no,
+        dong: r.dong,
+        ho: r.ho,
+        resident_phone: r.resident_phone,
+        execution_date: r.execution_date,
+        loan_amount: r.loan_amount,
+      })),
+    }));
+    window.open(`/bank/request/${kind}`, "_blank");
+  };
+
+  const markDone = async (id: string) => {
+    try {
+      await api.updateBankStatus(id, "done");
+      toast.success("실행완료 처리");
+      fetchData();
+    } catch { toast.error("처리 실패"); }
+  };
 
   const openDetail = (row: Consultation) => {
     setSelected(row);
@@ -163,7 +265,7 @@ export default function BankDashboard() {
           <Badge className="bg-blue-100 text-blue-700 border-transparent">은행 상담사</Badge>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-muted-foreground">{bankName} · 창원 힐스테이트 마크로엔</span>
+          <span className="text-sm text-muted-foreground">{bankName} · {summary.complex_full_name || summary.complex_name || ""}</span>
           <Button variant="outline" size="sm" onClick={() => setPwOpen(true)}>
             <KeyRound className="h-4 w-4 mr-1" /> 비밀번호 변경
           </Button>
@@ -177,10 +279,148 @@ export default function BankDashboard() {
         {/* 탭 */}
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList>
+            <TabsTrigger value="today">
+              오늘 할 일
+              {(todayTasks.todayExec.length + todayTasks.docMissing.length) > 0 && (
+                <Badge className="ml-2 bg-red-500 text-white border-transparent hover:bg-red-500">
+                  {todayTasks.todayExec.length + todayTasks.docMissing.length}
+                </Badge>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="list">접수 리스트</TabsTrigger>
-            <TabsTrigger value="summary">집계 현황</TabsTrigger>
+            <TabsTrigger value="request">
+              요청서
+              {selectedIds.size > 0 && (
+                <Badge className="ml-2 bg-blue-500 text-white border-transparent hover:bg-blue-500">
+                  {selectedIds.size}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="report">리포트</TabsTrigger>
           </TabsList>
         </Tabs>
+
+        {/* 한도 게이지 (리스트/리포트에서 공통 상단) */}
+        {(tab === "list" || tab === "report") && summary.total_limit > 0 && (
+          <Card>
+            <CardContent className="p-3 space-y-2">
+              <div className="flex justify-between text-xs">
+                <span className="font-medium">
+                  한도 소진 · 승인번호 {summary.approval_no || "-"}
+                </span>
+                <span className="text-muted-foreground">
+                  {formatMoney(summary.total_amount)} / 총 {Math.round((summary.total_limit || 0) / 100_000_000)}억원 ({Math.round(((summary.total_amount || 0) / (summary.total_limit || 1)) * 100)}%)
+                </span>
+              </div>
+              <div className="h-2 rounded bg-gray-200 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-blue-400 to-blue-600"
+                  style={{ width: `${Math.min(100, ((summary.total_amount || 0) / (summary.total_limit || 1)) * 100)}%` }}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {tab === "today" && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <Card className="border-red-200 bg-red-50">
+                <CardHeader className="p-3 pb-1"><CardTitle className="text-xs flex items-center gap-1"><AlertTriangle className="h-3 w-3" />오늘 실행예정</CardTitle></CardHeader>
+                <CardContent className="p-3 pt-0"><p className="text-2xl font-bold text-red-700">{todayTasks.todayExec.length}건</p></CardContent>
+              </Card>
+              <Card className="border-yellow-200 bg-yellow-50">
+                <CardHeader className="p-3 pb-1"><CardTitle className="text-xs flex items-center gap-1"><FileText className="h-3 w-3" />서류 미제출</CardTitle></CardHeader>
+                <CardContent className="p-3 pt-0"><p className="text-2xl font-bold text-yellow-700">{todayTasks.docMissing.length}건</p></CardContent>
+              </Card>
+              <Card className="border-green-200 bg-green-50">
+                <CardHeader className="p-3 pb-1"><CardTitle className="text-xs flex items-center gap-1"><CalendarDays className="h-3 w-3" />이번주 실행예정</CardTitle></CardHeader>
+                <CardContent className="p-3 pt-0"><p className="text-2xl font-bold text-green-700">{todayTasks.weekExec.length}건</p></CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader><CardTitle className="text-base flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-red-600" />오늘 실행예정 ({todayTasks.todayExec.length}건)</CardTitle></CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader><TableRow>
+                    <TableHead>고객명</TableHead><TableHead>동/호</TableHead><TableHead>연락처</TableHead>
+                    <TableHead>대출신청금</TableHead><TableHead>상태</TableHead><TableHead>액션</TableHead>
+                  </TableRow></TableHeader>
+                  <TableBody>
+                    {todayTasks.todayExec.length === 0 ? (
+                      <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">오늘 실행예정 건이 없습니다.</TableCell></TableRow>
+                    ) : todayTasks.todayExec.map(r => (
+                      <TableRow key={r.id} className="cursor-pointer hover:bg-blue-50" onClick={() => openDetail(r)}>
+                        <TableCell className="font-medium">{r.resident_name}</TableCell>
+                        <TableCell>{r.dong ? `${r.dong}동 ${r.ho}호` : "-"}</TableCell>
+                        <TableCell>{r.resident_phone}</TableCell>
+                        <TableCell>{formatMoney(r.loan_amount)}</TableCell>
+                        <TableCell>{statusBadge(r.loan_status)}</TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          {r.loan_status !== "done" && (
+                            <Button size="sm" variant="outline" onClick={() => markDone(r.id)}>실행완료 처리</Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader><CardTitle className="text-base flex items-center gap-2"><FileText className="h-4 w-4 text-yellow-600" />서류 미제출 ({todayTasks.docMissing.length}건)</CardTitle></CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader><TableRow>
+                    <TableHead>고객명</TableHead><TableHead>동/호</TableHead><TableHead>접수일</TableHead>
+                    <TableHead>연락처</TableHead><TableHead>대출신청금</TableHead>
+                  </TableRow></TableHeader>
+                  <TableBody>
+                    {todayTasks.docMissing.length === 0 ? (
+                      <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">서류 미제출 건이 없습니다.</TableCell></TableRow>
+                    ) : todayTasks.docMissing.map(r => (
+                      <TableRow key={r.id} className="cursor-pointer hover:bg-blue-50" onClick={() => openDetail(r)}>
+                        <TableCell className="font-medium">{r.resident_name}</TableCell>
+                        <TableCell>{r.dong ? `${r.dong}동 ${r.ho}호` : "-"}</TableCell>
+                        <TableCell>{r.receive_date ?? "-"}</TableCell>
+                        <TableCell>{r.resident_phone}</TableCell>
+                        <TableCell>{formatMoney(r.loan_amount)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader><CardTitle className="text-base flex items-center gap-2"><CalendarDays className="h-4 w-4 text-green-600" />이번주 실행예정 ({todayTasks.weekExec.length}건)</CardTitle></CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader><TableRow>
+                    <TableHead>실행일</TableHead><TableHead>고객명</TableHead><TableHead>동/호</TableHead>
+                    <TableHead>연락처</TableHead><TableHead>대출신청금</TableHead><TableHead>상태</TableHead>
+                  </TableRow></TableHeader>
+                  <TableBody>
+                    {todayTasks.weekExec.length === 0 ? (
+                      <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">이번주 실행예정 건이 없습니다.</TableCell></TableRow>
+                    ) : todayTasks.weekExec.map(r => (
+                      <TableRow key={r.id} className="cursor-pointer hover:bg-blue-50" onClick={() => openDetail(r)}>
+                        <TableCell className="font-mono text-xs">{r.execution_date}</TableCell>
+                        <TableCell className="font-medium">{r.resident_name}</TableCell>
+                        <TableCell>{r.dong ? `${r.dong}동 ${r.ho}호` : "-"}</TableCell>
+                        <TableCell>{r.resident_phone}</TableCell>
+                        <TableCell>{formatMoney(r.loan_amount)}</TableCell>
+                        <TableCell>{statusBadge(r.loan_status)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {tab === "list" && (
           <>
@@ -204,27 +444,39 @@ export default function BankDashboard() {
               ))}
             </div>
 
-            {/* 필터 */}
+            {/* 빠른 검색 + 필터 */}
             <div className="flex flex-wrap gap-3 items-center">
+              <div className="relative flex-1 min-w-[200px] max-w-xs">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="고객명 / 동호수 / 전화 검색"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="pl-8 h-9"
+                />
+              </div>
               <Select value={divFilter} onValueChange={setDivFilter}>
-                <SelectTrigger className="w-32"><SelectValue placeholder="구분" /></SelectTrigger>
+                <SelectTrigger className="w-28 h-9"><SelectValue placeholder="구분" /></SelectTrigger>
                 <SelectContent>
-                  {["전체", "조합", "일반"].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                  {["전체", "조합", "일반", "고정", "변동"].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Select value={ownFilter} onValueChange={setOwnFilter}>
-                <SelectTrigger className="w-32"><SelectValue placeholder="명의" /></SelectTrigger>
+                <SelectTrigger className="w-28 h-9"><SelectValue placeholder="명의" /></SelectTrigger>
                 <SelectContent>
                   {["전체", "단독", "공동"].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-32"><SelectValue placeholder="상태" /></SelectTrigger>
+                <SelectTrigger className="w-28 h-9"><SelectValue placeholder="상태" /></SelectTrigger>
                 <SelectContent>
                   {["전체", "대기", "실행완료", "취소"].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <span className="text-sm text-muted-foreground ml-auto">총 {filtered.length}건</span>
+              <span className="text-sm text-muted-foreground ml-auto">
+                {selectedIds.size > 0 && <span className="mr-2 text-blue-600 font-medium">선택 {selectedIds.size}건 · </span>}
+                총 {filtered.length}건
+              </span>
               <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
                 <RefreshCw className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} /> 새로고침
               </Button>
@@ -238,6 +490,12 @@ export default function BankDashboard() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={filtered.length > 0 && filtered.every(r => selectedIds.has(r.id))}
+                        onCheckedChange={(c) => c ? selectAllVisible() : clearSelection()}
+                      />
+                    </TableHead>
                     <TableHead className="w-12">순번</TableHead>
                     <TableHead>담당</TableHead>
                     <TableHead>구분</TableHead>
@@ -254,16 +512,22 @@ export default function BankDashboard() {
                 </TableHeader>
                 <TableBody>
                   {loading ? (
-                    <TableRow><TableCell colSpan={12} className="text-center py-10 text-muted-foreground">로딩 중...</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={13} className="text-center py-10 text-muted-foreground">로딩 중...</TableCell></TableRow>
                   ) : filtered.length === 0 ? (
-                    <TableRow><TableCell colSpan={12} className="text-center py-10 text-muted-foreground">데이터가 없습니다.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={13} className="text-center py-10 text-muted-foreground">데이터가 없습니다.</TableCell></TableRow>
                   ) : filtered.map((r, i) => (
                     <TableRow key={r.id} className="cursor-pointer hover:bg-blue-50" onClick={() => openDetail(r)}>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Checkbox checked={selectedIds.has(r.id)} onCheckedChange={() => toggleSelect(r.id)} />
+                      </TableCell>
                       <TableCell>{i + 1}</TableCell>
                       <TableCell>{r.manager ?? "-"}</TableCell>
                       <TableCell>{r.division ?? "-"}</TableCell>
                       <TableCell>{r.ownership ?? "-"}</TableCell>
-                      <TableCell className="font-medium">{r.resident_name}</TableCell>
+                      <TableCell className="font-medium">
+                        {r.resident_name}
+                        {r.memo && <span title={r.memo} className="ml-1 text-amber-500">🔖</span>}
+                      </TableCell>
                       <TableCell>{r.dong ? `${r.dong}동 ${r.ho}호` : "-"}</TableCell>
                       <TableCell>{r.resident_phone}</TableCell>
                       <TableCell>{r.receive_date ?? "-"}</TableCell>
@@ -279,17 +543,138 @@ export default function BankDashboard() {
           </>
         )}
 
-        {tab === "summary" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {tab === "request" && (
+          <div className="space-y-4">
             <Card>
-              <CardHeader><CardTitle className="text-base">전체 집계</CardTitle></CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-muted-foreground">총 접수</span><span className="font-medium">{summary.total_count ?? 0}건 / {formatMoney(summary.total_amount)}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">취소</span><span className="font-medium">{summary.cancel_count ?? 0}건 / {formatMoney(summary.cancel_amount)}</span></div>
-                <div className="flex justify-between border-t pt-2"><span className="font-semibold">순 접수</span><span className="font-bold">{(summary.total_count ?? 0) - (summary.cancel_count ?? 0)}건</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">대기</span><span>{summary.wait_count ?? 0}건</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">실행완료</span><span>{summary.done_count ?? 0}건</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">오늘 접수</span><span>{summary.today_count ?? 0}건</span></div>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Printer className="h-4 w-4" />
+                  잔금/중도금 조회 요청서
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  "접수 리스트" 탭에서 고객을 체크박스로 선택한 후, 아래 버튼으로 요청서를 생성하세요.
+                  인쇄 화면에서 PDF 저장 또는 인쇄가 가능합니다.
+                </p>
+
+                {selectedIds.size === 0 ? (
+                  <div className="p-6 text-center text-sm text-muted-foreground bg-gray-50 rounded">
+                    선택된 고객이 없습니다. 접수 리스트에서 체크박스로 선택해주세요.
+                  </div>
+                ) : (
+                  <>
+                    <div className="bg-blue-50 border border-blue-200 rounded p-3">
+                      <p className="text-sm font-medium text-blue-800 mb-2">선택된 고객 {selectedIds.size}명</p>
+                      <div className="flex flex-wrap gap-1">
+                        {data.filter(r => selectedIds.has(r.id)).map(r => (
+                          <Badge key={r.id} variant="secondary" className="text-xs">
+                            {r.resident_name} ({r.dong}-{r.ho})
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button onClick={() => openRequestDoc("balance")} className="flex-1 bg-green-600 hover:bg-green-700">
+                        <Printer className="h-4 w-4 mr-1" /> 잔금조회 요청서 만들기
+                      </Button>
+                      <Button onClick={() => openRequestDoc("interim")} className="flex-1 bg-orange-600 hover:bg-orange-700">
+                        <Printer className="h-4 w-4 mr-1" /> 중도금조회 요청서 만들기
+                      </Button>
+                      <Button variant="outline" onClick={clearSelection}>선택 해제</Button>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader><CardTitle className="text-sm text-muted-foreground">요청서에 포함되는 정보</CardTitle></CardHeader>
+              <CardContent className="text-xs text-muted-foreground space-y-1">
+                <p>• 은행명: {bankName}</p>
+                <p>• 단지: {summary.complex_full_name || "-"}</p>
+                <p>• 담당자: {summary.bank_manager || "(은행 계정에 담당자 정보 등록 필요)"}</p>
+                <p>• HP: {summary.bank_phone || "-"}</p>
+                <p>• FAX: {summary.bank_fax || "-"}</p>
+                <p className="pt-1 text-[11px]">잔금/중도금 수기 기입란은 인쇄 후 현장에서 작성하도록 비워둡니다.</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {tab === "report" && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card>
+                <CardHeader><CardTitle className="text-base">고정 금리</CardTitle></CardHeader>
+                <CardContent className="space-y-1">
+                  <p className="text-2xl font-bold">{summary.fixed_count ?? 0}건</p>
+                  <p className="text-sm text-muted-foreground">{formatMoney(summary.fixed_amount)}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader><CardTitle className="text-base">변동 금리</CardTitle></CardHeader>
+                <CardContent className="space-y-1">
+                  <p className="text-2xl font-bold">{summary.var_count ?? 0}건</p>
+                  <p className="text-sm text-muted-foreground">{formatMoney(summary.var_amount)}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader><CardTitle className="text-base">취소</CardTitle></CardHeader>
+                <CardContent className="space-y-1">
+                  <p className="text-2xl font-bold text-red-600">{summary.cancel_count ?? 0}건</p>
+                  <p className="text-sm text-muted-foreground">{formatMoney(summary.cancel_amount)}</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader><CardTitle className="text-base">일별 접수/실행 추이 (최근 30일)</CardTitle></CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={260}>
+                  <LineChart data={dailyTrend}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" fontSize={11} />
+                    <YAxis fontSize={11} />
+                    <ReTooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey="receive" stroke="#3b82f6" name="접수" strokeWidth={2} />
+                    <Line type="monotone" dataKey="execute" stroke="#10b981" name="실행" strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader><CardTitle className="text-base">월별 실행예정 (당월 포함 향후 3개월)</CardTitle></CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={monthlyExec}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="label" fontSize={11} />
+                    <YAxis yAxisId="left" fontSize={11} />
+                    <YAxis yAxisId="right" orientation="right" fontSize={11} tickFormatter={(v) => `${(v / 100_000_000).toFixed(0)}억`} />
+                    <ReTooltip formatter={(v: any, n: string) => n === "amount" ? formatMoney(v as number) : `${v}건`} />
+                    <Legend />
+                    <Bar yAxisId="left" dataKey="count" fill="#3b82f6" name="건수" />
+                    <Bar yAxisId="right" dataKey="amount" fill="#f59e0b" name="금액(원)" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader><CardTitle className="text-base">전체 집계 요약</CardTitle></CardHeader>
+              <CardContent className="text-sm grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div><p className="text-muted-foreground text-xs">총 접수(순)</p><p className="font-bold">{summary.total_count ?? 0}건</p></div>
+                <div><p className="text-muted-foreground text-xs">총 접수금액</p><p className="font-bold">{formatMoney(summary.total_amount)}</p></div>
+                <div><p className="text-muted-foreground text-xs">대기</p><p className="font-bold">{summary.wait_count ?? 0}건</p></div>
+                <div><p className="text-muted-foreground text-xs">실행완료</p><p className="font-bold">{summary.done_count ?? 0}건</p></div>
+                <div><p className="text-muted-foreground text-xs">오늘 접수</p><p className="font-bold">{summary.today_count ?? 0}건</p></div>
+                <div><p className="text-muted-foreground text-xs">오늘 실행예정</p><p className="font-bold">{summary.today_exec_count ?? 0}건</p></div>
+                <div><p className="text-muted-foreground text-xs">서류 미제출</p><p className="font-bold">{summary.doc_missing_count ?? 0}건</p></div>
+                <div><p className="text-muted-foreground text-xs">이번주 실행</p><p className="font-bold">{summary.week_exec_count ?? 0}건</p></div>
               </CardContent>
             </Card>
           </div>

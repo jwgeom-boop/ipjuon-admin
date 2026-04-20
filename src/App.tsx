@@ -11,6 +11,7 @@ import ConsultationDashboard from "./pages/ConsultationDashboard";
 import VendorManagement from "./pages/VendorManagement";
 import Notices from "./pages/Notices";
 import BankDashboard from "./pages/BankDashboard";
+import BankRequestDoc from "./pages/BankRequestDoc";
 import InviteLogs from "./pages/InviteLogs";
 import NotFound from "./pages/NotFound";
 
@@ -26,6 +27,7 @@ const App = () => (
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/bank" element={<BankDashboard />} />
+            <Route path="/bank/request/:kind" element={<BankRequestDoc />} />
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route element={<AdminLayout />}>
               <Route path="/dashboard" element={<Dashboard />} />

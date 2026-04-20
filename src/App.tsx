@@ -11,6 +11,7 @@ import ConsultationDashboard from "./pages/ConsultationDashboard";
 import VendorManagement from "./pages/VendorManagement";
 import Notices from "./pages/Notices";
 import BankDashboard from "./pages/BankDashboard";
+import InviteLogs from "./pages/InviteLogs";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const App = () => (
               <Route path="/consultation" element={<ConsultationDashboard />} />
               <Route path="/vendors" element={<VendorManagement />} />
               <Route path="/notices" element={<Notices />} />
+              <Route path="/invites" element={<InviteLogs />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

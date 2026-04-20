@@ -121,4 +121,11 @@ export const api = {
     if (!res.ok) throw new Error('집계 조회 실패')
     return res.json()
   },
+
+  // 초대 발송 내역
+  getInvites: async () => {
+    const res = await fetch(`${API_BASE_URL}/invite`, { headers: getHeaders() })
+    if (!res.ok) throw new Error('초대 내역 조회 실패')
+    return res.json()
+  },
 }

@@ -20,6 +20,7 @@ import { ko } from "date-fns/locale";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { BarChart, Bar, XAxis, YAxis, Tooltip as ReTooltip, ResponsiveContainer, LineChart, Line, CartesianGrid, Legend } from "recharts";
+import { detectMoveInMode } from "@/lib/urgency";
 
 type Consultation = Record<string, any>;
 
@@ -195,6 +196,7 @@ export default function BankDashboard() {
   const [ownFilter, setOwnFilter] = useState("전체");
   const [statusFilter, setStatusFilter] = useState("전체");
   const [search, setSearch] = useState("");
+  const [viewMode, setViewMode] = useState<"auto" | "normal" | "moveIn">("auto");
   // 요청서 생성용 선택
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -214,6 +216,9 @@ export default function BankDashboard() {
 
   useEffect(() => { fetchData(); }, []);
 
+  const autoMoveIn = useMemo(() => detectMoveInMode(data), [data]);
+  const effectiveMode: "normal" | "moveIn" = viewMode === "auto" ? (autoMoveIn ? "moveIn" : "normal") : viewMode;
+
   const filtered = useMemo(() => {
     let result = data;
     if (divFilter !== "전체") result = result.filter(r => r.division === divFilter);
@@ -231,8 +236,26 @@ export default function BankDashboard() {
         String(r.ho || "").includes(s)
       );
     }
-    return result;
-  }, [data, divFilter, ownFilter, statusFilter, search]);
+    // v3 §3.3 모드별 정렬
+    const now = Date.now();
+    const sorted = [...result];
+    if (effectiveMode === "moveIn") {
+      // 이사일 D-day 오름차순 (가까운 순), 이사일 없는 행은 맨 뒤
+      sorted.sort((a, b) => {
+        const da = a.moving_in_date ? new Date(a.moving_in_date).getTime() : Infinity;
+        const db = b.moving_in_date ? new Date(b.moving_in_date).getTime() : Infinity;
+        return da - db;
+      });
+    } else {
+      // 체류일 내림차순 (오래된 순)
+      sorted.sort((a, b) => {
+        const sa = a.stage_changed_at ? now - new Date(a.stage_changed_at).getTime() : -1;
+        const sb = b.stage_changed_at ? now - new Date(b.stage_changed_at).getTime() : -1;
+        return sb - sa;
+      });
+    }
+    return sorted;
+  }, [data, divFilter, ownFilter, statusFilter, search, effectiveMode]);
 
   // 일별 트렌드 데이터 (최근 30일)
   const dailyTrend = useMemo(() => {
@@ -479,6 +502,30 @@ export default function BankDashboard() {
         </div>
         <div className="flex items-center gap-3">
           <span className="text-sm text-muted-foreground">{bankName} · {summary.complex_full_name || summary.complex_name || ""}</span>
+          <div className="flex items-center border rounded-md overflow-hidden text-[11px]">
+            <button
+              className={`px-2 py-1 ${viewMode === "auto" ? "bg-gray-900 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+              onClick={() => setViewMode("auto")}
+              title={`자동 (현재: ${autoMoveIn ? "입주기간" : "평상시"})`}
+            >
+              자동
+            </button>
+            <button
+              className={`px-2 py-1 border-l ${viewMode === "normal" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+              onClick={() => setViewMode("normal")}
+            >
+              평상시
+            </button>
+            <button
+              className={`px-2 py-1 border-l ${viewMode === "moveIn" ? "bg-rose-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+              onClick={() => setViewMode("moveIn")}
+            >
+              입주기간
+            </button>
+          </div>
+          {effectiveMode === "moveIn" && (
+            <Badge className="bg-rose-100 text-rose-700 border-rose-200">입주기간 모드</Badge>
+          )}
           <Button variant="outline" size="sm" className="border-red-300 text-red-700 hover:bg-red-50" onClick={() => navigate("/bank/urgent")}>
             <AlertTriangle className="h-4 w-4 mr-1" /> 긴급 대시보드
           </Button>
@@ -798,7 +845,9 @@ export default function BankDashboard() {
                 done:                [colCheckbox, colNum, colName, colDongHo, colExecDate, colAmount, colBank, colManager],
                 cancel:              [colCheckbox, colNum, colName, colDongHo, colCanceledReason, colReceiveDate],
               };
-              const DEFAULT_COLS: Col[] = [colCheckbox, colNum, colManager, colDivision, colOwnership, colName, colDongHo, colPhone, colReceiveDate, colExecDate, colAmount, colProduct, colStatus, colStay];
+              const DEFAULT_COLS_NORMAL: Col[] = [colCheckbox, colNum, colManager, colDivision, colOwnership, colName, colDongHo, colPhone, colReceiveDate, colExecDate, colAmount, colProduct, colStatus, colStay];
+              const DEFAULT_COLS_MOVEIN: Col[] = [colCheckbox, colNum, colName, colDongHo, colPhone, colManager, colStatus, colSigningDate, colExecDate, colMovingDday, colStay, colAction];
+              const DEFAULT_COLS = effectiveMode === "moveIn" ? DEFAULT_COLS_MOVEIN : DEFAULT_COLS_NORMAL;
               const cols = activeStageKey ? (COL_BY_STAGE[activeStageKey] ?? DEFAULT_COLS) : DEFAULT_COLS;
 
               return (

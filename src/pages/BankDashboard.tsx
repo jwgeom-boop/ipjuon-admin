@@ -28,22 +28,24 @@ const formatMoney = (v?: number | null) =>
 
 const parseAmount = (v: string) => Number(v.replace(/[^0-9]/g, "")) || 0;
 
-// 7단계 파이프라인 정의 (상담사 업무 흐름)
+// v3 9단계 파이프라인 (상담→가심사→결과안내→자서예약→자서→대출실행 + 신청/완료/취소)
 const STAGES = [
-  { key: "apply",      label: "상담신청", short: "신청", icon: Inbox,          color: "blue",    next: "consulting", nextLabel: "상담시작" },
-  { key: "consulting", label: "상담중",   short: "상담", icon: MessageSquare,  color: "indigo",  next: "reviewing",  nextLabel: "심사접수" },
-  { key: "reviewing",  label: "심사중",   short: "심사", icon: ClipboardCheck, color: "purple",  next: "result",     nextLabel: "결과입력" },
-  { key: "result",     label: "결과대기", short: "결과", icon: Mail,           color: "pink",    next: "executing",  nextLabel: "실행일지정" },
-  { key: "executing",  label: "실행예정", short: "실행", icon: CalendarDays,   color: "amber",   next: "done",       nextLabel: "실행완료" },
-  { key: "done",       label: "실행완료", short: "완료", icon: CheckCircle2,   color: "green",   next: null,         nextLabel: null },
-  { key: "cancel",     label: "취소",     short: "취소", icon: XCircle,        color: "red",     next: null,         nextLabel: null },
+  { key: "apply",                label: "신청",     short: "신청", icon: Inbox,          color: "blue",    next: "consulting",         nextLabel: "상담시작" },
+  { key: "consulting",           label: "상담",     short: "상담", icon: MessageSquare,  color: "indigo",  next: "reviewing",          nextLabel: "심사접수" },
+  { key: "reviewing",            label: "가심사",   short: "가심", icon: ClipboardCheck, color: "purple",  next: "result",             nextLabel: "결과입력" },
+  { key: "result",               label: "결과안내", short: "결과", icon: Mail,           color: "pink",    next: "signing_reservation",nextLabel: "자서예약" },
+  { key: "signing_reservation",  label: "자서예약", short: "예약", icon: CalendarDays,   color: "cyan",    next: "signing",            nextLabel: "자서진행" },
+  { key: "signing",              label: "자서",     short: "자서", icon: FileText,       color: "teal",    next: "executing",          nextLabel: "실행일지정" },
+  { key: "executing",            label: "대출실행", short: "실행", icon: ArrowRight,     color: "amber",   next: "done",               nextLabel: "실행완료" },
+  { key: "done",                 label: "완료",     short: "완료", icon: CheckCircle2,   color: "green",   next: null,                 nextLabel: null },
+  { key: "cancel",               label: "취소",     short: "취소", icon: XCircle,        color: "red",     next: null,                 nextLabel: null },
 ] as const;
 
 type StageKey = typeof STAGES[number]["key"];
 
-// 체류일 경고 임계값 (단계별)
+// v3 §4.1 단계별 SLA 임계값 (긴급 진입 일수)
 const STAGE_WARN_DAYS: Record<string, number> = {
-  apply: 1, consulting: 3, reviewing: 3, result: 1, executing: 1,
+  apply: 1, consulting: 8, reviewing: 5, result: 3, signing_reservation: 7, signing: 4, executing: 1,
 };
 
 // 단계별 필수 필드 (spec §3.2)
@@ -78,7 +80,9 @@ const REQUIRED_BY_STAGE: Record<string, string[]> = {
   apply: [],
   consulting: BASE_LOAN_FIELDS,
   reviewing: [...BASE_LOAN_FIELDS, "document_date"],
-  result: [...BASE_LOAN_FIELDS, "document_date"],
+  result: [...BASE_LOAN_FIELDS, "document_date", "approved_amount", "approved_rate"],
+  signing_reservation: [...BASE_LOAN_FIELDS, "document_date", "approved_amount", "approved_rate", "signing_date", "moving_in_date", "spouse_phone"],
+  signing: [...BASE_LOAN_FIELDS, "document_date", "approved_amount", "approved_rate", "signing_date", "execution_date"],
   executing: [...BASE_LOAN_FIELDS, "document_date", "execution_date", "balance_account"],
   done: [],
   cancel: [],
@@ -98,6 +102,8 @@ const statusBadge = (s?: string) => {
     indigo: "bg-indigo-100 text-indigo-800",
     purple: "bg-purple-100 text-purple-800",
     pink:   "bg-pink-100 text-pink-800",
+    cyan:   "bg-cyan-100 text-cyan-800",
+    teal:   "bg-teal-100 text-teal-800",
     amber:  "bg-amber-100 text-amber-800",
     green:  "bg-green-100 text-green-800",
     red:    "bg-red-100 text-red-800",
@@ -310,6 +316,8 @@ export default function BankDashboard() {
     consulting:data.filter(r => r.loan_status === "consulting" && (daysSince(r.stage_changed_at) ?? 0) >= STAGE_WARN_DAYS.consulting).length,
     reviewing: data.filter(r => r.loan_status === "reviewing" && (daysSince(r.stage_changed_at) ?? 0) >= STAGE_WARN_DAYS.reviewing).length,
     result:    data.filter(r => r.loan_status === "result").length,
+    signing_reservation: data.filter(r => r.loan_status === "signing_reservation" && (daysSince(r.stage_changed_at) ?? 0) >= STAGE_WARN_DAYS.signing_reservation).length,
+    signing:   data.filter(r => r.loan_status === "signing" && (daysSince(r.stage_changed_at) ?? 0) >= STAGE_WARN_DAYS.signing).length,
     executing: data.filter(r => r.loan_status === "executing" && r.execution_date === format(new Date(), "yyyy-MM-dd")).length,
   }), [data]);
 
@@ -321,7 +329,7 @@ export default function BankDashboard() {
     const monthS = format(startOfMonth(now), "yyyy-MM-dd");
     const monthE = format(endOfMonth(now), "yyyy-MM-dd");
 
-    const activeStages = ["apply", "consulting", "reviewing", "result", "executing"];
+    const activeStages = ["apply", "consulting", "reviewing", "result", "signing_reservation", "signing", "executing"];
     const active = data.filter(r => activeStages.includes(r.loan_status ?? "apply")).length;
 
     const stuck = (activeStages as StageKey[]).reduce((acc, k) => {
@@ -436,7 +444,7 @@ export default function BankDashboard() {
   };
   const allDocs = DOCUMENTS.flatMap(c => c.items);
   const checkedDocCount = allDocs.filter(d => docsSet.has(d.key)).length;
-  const stageOrder = ["apply", "consulting", "reviewing", "result", "executing", "done"];
+  const stageOrder = ["apply", "consulting", "reviewing", "result", "signing_reservation", "signing", "executing", "done"];
   const curIdx = stageOrder.indexOf(curStageKey);
   const docsMissingRequired = allDocs.filter(d => {
     if (!d.required) return false;
@@ -526,32 +534,42 @@ export default function BankDashboard() {
         </div>
 
         {/* 상단 "오늘 처리 필요" 알림바 */}
-        {(todoSummary.apply + todoSummary.consulting + todoSummary.reviewing + todoSummary.result + todoSummary.executing) > 0 && (
+        {(todoSummary.apply + todoSummary.consulting + todoSummary.reviewing + todoSummary.result + todoSummary.signing_reservation + todoSummary.signing + todoSummary.executing) > 0 && (
           <Card className="bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200">
-            <CardContent className="p-3 flex flex-wrap items-center gap-4 text-sm">
+            <CardContent className="p-2 flex flex-wrap items-center gap-3 text-[12px]">
               <span className="font-semibold text-amber-900">🔔 오늘 처리 필요</span>
               {todoSummary.apply > 0 && (
-                <button onClick={() => { setTab("list"); setStatusFilter("상담신청"); }} className="hover:underline">
-                  신규 상담신청 <strong className="text-blue-700">{todoSummary.apply}</strong>건
+                <button onClick={() => { setTab("list"); setStatusFilter("신청"); }} className="hover:underline">
+                  신규 신청 <strong className="text-blue-700">{todoSummary.apply}</strong>건
                 </button>
               )}
               {todoSummary.consulting > 0 && (
-                <button onClick={() => { setTab("list"); setStatusFilter("상담중"); }} className="hover:underline">
+                <button onClick={() => { setTab("list"); setStatusFilter("상담"); }} className="hover:underline">
                   정체 상담 <strong className="text-red-700">{todoSummary.consulting}</strong>건
                 </button>
               )}
               {todoSummary.reviewing > 0 && (
-                <button onClick={() => { setTab("list"); setStatusFilter("심사중"); }} className="hover:underline">
-                  정체 심사 <strong className="text-purple-700">{todoSummary.reviewing}</strong>건
+                <button onClick={() => { setTab("list"); setStatusFilter("가심사"); }} className="hover:underline">
+                  정체 가심사 <strong className="text-purple-700">{todoSummary.reviewing}</strong>건
                 </button>
               )}
               {todoSummary.result > 0 && (
-                <button onClick={() => { setTab("list"); setStatusFilter("결과대기"); }} className="hover:underline">
+                <button onClick={() => { setTab("list"); setStatusFilter("결과안내"); }} className="hover:underline">
                   결과통보 <strong className="text-pink-700">{todoSummary.result}</strong>건
                 </button>
               )}
+              {todoSummary.signing_reservation > 0 && (
+                <button onClick={() => { setTab("list"); setStatusFilter("자서예약"); }} className="hover:underline">
+                  자서예약 정체 <strong className="text-cyan-700">{todoSummary.signing_reservation}</strong>건
+                </button>
+              )}
+              {todoSummary.signing > 0 && (
+                <button onClick={() => { setTab("list"); setStatusFilter("자서"); }} className="hover:underline">
+                  자서 정체 <strong className="text-teal-700">{todoSummary.signing}</strong>건
+                </button>
+              )}
               {todoSummary.executing > 0 && (
-                <button onClick={() => { setTab("list"); setStatusFilter("실행예정"); }} className="hover:underline">
+                <button onClick={() => { setTab("list"); setStatusFilter("대출실행"); }} className="hover:underline">
                   오늘 실행 <strong className="text-amber-700">{todoSummary.executing}</strong>건
                 </button>
               )}
@@ -599,8 +617,8 @@ export default function BankDashboard() {
 
         {tab === "list" && (
           <>
-            {/* 단계별 요약 카드 (클릭 시 해당 단계로 필터) */}
-            <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
+            {/* 단계별 요약 카드 (클릭 시 해당 단계로 필터, v3: 전체 + 9단계 = 10) */}
+            <div className="grid grid-cols-5 md:grid-cols-10 gap-1.5">
               <Card
                 className={`shadow-sm cursor-pointer transition-colors ${statusFilter === "전체" ? "bg-blue-100 border-blue-400" : "hover:bg-blue-50"}`}
                 onClick={() => setStatusFilter("전체")}
@@ -673,61 +691,140 @@ export default function BankDashboard() {
               </Button>
             </div>
 
-            {/* 테이블 */}
-            <div className="border rounded-lg bg-white overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-10">
-                      <Checkbox
-                        checked={filtered.length > 0 && filtered.every(r => selectedIds.has(r.id))}
-                        onCheckedChange={(c) => c ? selectAllVisible() : clearSelection()}
-                      />
-                    </TableHead>
-                    <TableHead className="w-12">순번</TableHead>
-                    <TableHead>담당</TableHead>
-                    <TableHead>구분</TableHead>
-                    <TableHead>명의</TableHead>
-                    <TableHead>고객명</TableHead>
-                    <TableHead>동/호</TableHead>
-                    <TableHead>연락처</TableHead>
-                    <TableHead>접수일</TableHead>
-                    <TableHead>실행일</TableHead>
-                    <TableHead>대출신청금</TableHead>
-                    <TableHead>상품</TableHead>
-                    <TableHead>상태</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
-                    <TableRow><TableCell colSpan={13} className="text-center py-10 text-muted-foreground">로딩 중...</TableCell></TableRow>
-                  ) : filtered.length === 0 ? (
-                    <TableRow><TableCell colSpan={13} className="text-center py-10 text-muted-foreground">데이터가 없습니다.</TableCell></TableRow>
-                  ) : filtered.map((r, i) => (
-                    <TableRow key={r.id} className="cursor-pointer hover:bg-blue-50" onClick={() => openDetail(r)}>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <Checkbox checked={selectedIds.has(r.id)} onCheckedChange={() => toggleSelect(r.id)} />
-                      </TableCell>
-                      <TableCell>{i + 1}</TableCell>
-                      <TableCell>{r.manager ?? "-"}</TableCell>
-                      <TableCell>{r.division ?? "-"}</TableCell>
-                      <TableCell>{r.ownership ?? "-"}</TableCell>
-                      <TableCell className="font-medium">
-                        {r.resident_name}
-                        {r.memo && <span title={r.memo} className="ml-1 text-amber-500">🔖</span>}
-                      </TableCell>
-                      <TableCell>{r.dong ? `${r.dong}동 ${r.ho}호` : "-"}</TableCell>
-                      <TableCell>{r.resident_phone}</TableCell>
-                      <TableCell>{r.receive_date ?? "-"}</TableCell>
-                      <TableCell>{r.execution_date ?? "-"}</TableCell>
-                      <TableCell>{formatMoney(r.loan_amount)}</TableCell>
-                      <TableCell>{r.product ?? "-"}</TableCell>
-                      <TableCell>{statusBadge(r.loan_status)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            {/* v3 §6.2: 단계별 동적 컬럼 + 28px 행 + 11px 폰트 */}
+            {(() => {
+              const activeStageKey = (STAGES.find(s => s.label === statusFilter)?.key ?? null) as StageKey | null;
+              const dHo = (r: Consultation) => r.dong ? `${r.dong}-${r.ho}` : "-";
+              const ratePct = (r: Consultation) => r.approved_rate ?? "-";
+              const dDay = (iso?: string) => {
+                if (!iso) return null;
+                const target = new Date(iso); const now = new Date();
+                return Math.floor((target.getTime() - now.getTime()) / 86400000);
+              };
+              const dDayBadge = (iso?: string) => {
+                const d = dDay(iso);
+                if (d === null) return <span className="text-muted-foreground">-</span>;
+                const cls = d < 0 ? "text-red-600 font-semibold" : d <= 3 ? "text-amber-600 font-semibold" : "text-muted-foreground";
+                return <span className={`text-[11px] ${cls}`}>{d === 0 ? "D-day" : d > 0 ? `D-${d}` : `D+${-d}`}</span>;
+              };
+              const ActionBtn = ({ r }: { r: Consultation }) => {
+                const cur = STAGES.find(s => s.key === (r.loan_status ?? "apply"));
+                if (!cur?.next) return <span className="text-muted-foreground text-[11px]">-</span>;
+                return (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 px-2 text-[10px]"
+                    onClick={(e) => { e.stopPropagation(); advanceStage(r.id, cur.next!, cur.nextLabel!); }}
+                  >
+                    {cur.nextLabel} →
+                  </Button>
+                );
+              };
+
+              type Col = { label: string; w?: string; cell: (r: Consultation, i: number) => any };
+              const colCheckbox: Col = {
+                label: "", w: "w-8",
+                cell: (r) => (
+                  <span onClick={(e) => e.stopPropagation()}>
+                    <Checkbox checked={selectedIds.has(r.id)} onCheckedChange={() => toggleSelect(r.id)} />
+                  </span>
+                ),
+              };
+              const colName: Col = { label: "고객명", cell: (r) => (
+                <span className="font-medium">{r.resident_name}{r.memo && <span title={r.memo} className="ml-1 text-amber-500">🔖</span>}</span>
+              )};
+              const colPhone: Col = { label: "연락처", cell: (r) => r.resident_phone ?? "-" };
+              const colDongHo: Col = { label: "동/호", w: "w-20", cell: dHo };
+              const colManager: Col = { label: "담당", w: "w-16", cell: (r) => r.manager ?? "-" };
+              const colBank: Col = { label: "대출은행", cell: (r) => r.vendor_name ?? "-" };
+              const colBankBranch: Col = { label: "은행/담당자", cell: (r) => `${r.vendor_name ?? "-"} ${r.bank_branch ?? ""} ${r.bank_manager_phone ? `(${r.bank_manager_phone})` : ""}`.trim() };
+              const colReceiveDate: Col = { label: "접수일", w: "w-24", cell: (r) => r.receive_date ?? "-" };
+              const colDocDate: Col = { label: "서류전달일", w: "w-24", cell: (r) => r.document_date ?? "-" };
+              const colSigningDate: Col = { label: "자서일", w: "w-28", cell: (r) => r.signing_date ? `${r.signing_date}${r.signing_time ? ` ${r.signing_time}` : ""}` : "-" };
+              const colExecDate: Col = { label: "실행일", w: "w-24", cell: (r) => r.execution_date ?? "-" };
+              const colMovingDday: Col = { label: "입주 D-day", w: "w-20", cell: (r) => dDayBadge(r.moving_in_date) };
+              const colApprovedAmount: Col = { label: "승인금액", cell: (r) => formatMoney(r.approved_amount) };
+              const colApprovedRate: Col = { label: "금리", w: "w-16", cell: ratePct };
+              const colNotified: Col = { label: "통보", w: "w-16", cell: (r) => r.approved_notified_at ? <span className="text-green-600">✓</span> : <span className="text-muted-foreground">대기</span> };
+              const colDocsReady: Col = { label: "지참서류", cell: (r) => {
+                const d = (r.documents_checked || "").split(",").filter(Boolean).length;
+                return <span className={d >= 4 ? "text-green-600" : "text-amber-600"}>{d}/4</span>;
+              }};
+              const colRequiredFunds: Col = { label: "필요자금", cell: (r) => {
+                const A = (r.settle_middle_principal || 0) + (r.settle_middle_interest || 0) + (r.settle_balance_principal || 0) + (r.settle_balance_interest || 0)
+                       + (r.settle_balcony || 0) + (r.settle_options || 0) + (r.settle_guarantee_fee || 0) + (r.settle_mgmt_fee || 0)
+                       + (r.settle_moving_allowance || 0) + (r.settle_stamp_duty || 0) + (r.settle_stamp_duty_additional || 0);
+                const B = (r.loan_amount || 0) + (r.additional_loan_amount || 0);
+                const need = A - B;
+                if (A === 0 && B === 0) return <span className="text-muted-foreground">-</span>;
+                const cls = need > 0 ? "text-red-600" : need < 0 ? "text-green-600" : "text-muted-foreground";
+                return <span className={`font-medium ${cls}`}>{formatMoney(Math.abs(need))}{need > 0 ? " 추가" : need < 0 ? " 환급" : ""}</span>;
+              }};
+              const colSettleStatus: Col = { label: "정산", w: "w-16", cell: (r) => r.execution_completed ? <span className="text-green-600">완료</span> : <span className="text-amber-600">대기</span> };
+              const colCanceledReason: Col = { label: "취소사유", cell: (r) => r.canceled_reason ?? r.special_notes ?? "-" };
+              const colAmount: Col = { label: "신청금", cell: (r) => formatMoney(r.loan_amount) };
+              const colDivision: Col = { label: "구분", w: "w-14", cell: (r) => r.division ?? "-" };
+              const colOwnership: Col = { label: "명의", w: "w-14", cell: (r) => r.ownership ?? "-" };
+              const colProduct: Col = { label: "상품", w: "w-14", cell: (r) => r.product ?? "-" };
+              const colStatus: Col = { label: "단계", w: "w-20", cell: (r) => statusBadge(r.loan_status) };
+              const colStay: Col = { label: "체류", w: "w-16", cell: (r) => <StayDays stageKey={r.loan_status} stageChangedAt={r.stage_changed_at} /> };
+              const colAction: Col = { label: "액션", w: "w-24", cell: (r) => <ActionBtn r={r} /> };
+              const colNum: Col = { label: "#", w: "w-10", cell: (_r, i) => i + 1 };
+
+              const COL_BY_STAGE: Record<string, Col[]> = {
+                apply:               [colCheckbox, colNum, colName, colPhone, colDongHo, colReceiveDate, colStay, colAction],
+                consulting:          [colCheckbox, colNum, colName, colPhone, colDongHo, colReceiveDate, colStay, colAction],
+                reviewing:           [colCheckbox, colNum, colName, colDongHo, colBankBranch, colDocDate, colStay, colAction],
+                result:              [colCheckbox, colNum, colName, colDongHo, colApprovedAmount, colApprovedRate, colNotified, colStay, colAction],
+                signing_reservation: [colCheckbox, colNum, colName, colDongHo, colSigningDate, colDocsReady, colStay, colAction],
+                signing:             [colCheckbox, colNum, colName, colDongHo, colPhone, colManager, colBank, colExecDate, colMovingDday, colStay, colAction],
+                executing:           [colCheckbox, colNum, colName, colDongHo, colExecDate, colRequiredFunds, colSettleStatus, colMovingDday, colAction],
+                done:                [colCheckbox, colNum, colName, colDongHo, colExecDate, colAmount, colBank, colManager],
+                cancel:              [colCheckbox, colNum, colName, colDongHo, colCanceledReason, colReceiveDate],
+              };
+              const DEFAULT_COLS: Col[] = [colCheckbox, colNum, colManager, colDivision, colOwnership, colName, colDongHo, colPhone, colReceiveDate, colExecDate, colAmount, colProduct, colStatus, colStay];
+              const cols = activeStageKey ? (COL_BY_STAGE[activeStageKey] ?? DEFAULT_COLS) : DEFAULT_COLS;
+
+              return (
+                <div className="border rounded-lg bg-white overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="h-8">
+                        {cols.map((c, idx) => (
+                          <TableHead key={idx} className={`text-[10px] uppercase tracking-wide py-1 ${c.w ?? ""}`}>
+                            {idx === 0 ? (
+                              <Checkbox
+                                checked={filtered.length > 0 && filtered.every(r => selectedIds.has(r.id))}
+                                onCheckedChange={(ck) => ck ? selectAllVisible() : clearSelection()}
+                              />
+                            ) : c.label}
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {loading ? (
+                        <TableRow><TableCell colSpan={cols.length} className="text-center py-10 text-muted-foreground">로딩 중...</TableCell></TableRow>
+                      ) : filtered.length === 0 ? (
+                        <TableRow><TableCell colSpan={cols.length} className="text-center py-10 text-muted-foreground">데이터가 없습니다.</TableCell></TableRow>
+                      ) : filtered.slice(0, 50).map((r, i) => (
+                        <TableRow key={r.id} className="cursor-pointer hover:bg-blue-50 h-7" onClick={() => openDetail(r)}>
+                          {cols.map((c, idx) => (
+                            <TableCell key={idx} className="text-[11px] py-1">{c.cell(r, i)}</TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  {filtered.length > 50 && (
+                    <div className="px-3 py-2 text-[11px] text-muted-foreground bg-gray-50 border-t">
+                      상위 50건 표시 · 전체 {filtered.length}건 (필터/검색으로 좁혀주세요)
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </>
         )}
 
@@ -854,7 +951,7 @@ export default function BankDashboard() {
 
             <Card>
               <CardHeader><CardTitle className="text-base">파이프라인 단계별 집계</CardTitle></CardHeader>
-              <CardContent className="text-sm grid grid-cols-3 md:grid-cols-7 gap-3">
+              <CardContent className="text-sm grid grid-cols-3 md:grid-cols-9 gap-3">
                 {STAGES.map(s => (
                   <div key={s.key} className="text-center">
                     <p className="text-muted-foreground text-xs">{s.label}</p>

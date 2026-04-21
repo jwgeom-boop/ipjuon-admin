@@ -1137,6 +1137,15 @@ export default function BankDashboard() {
                           <Label className="text-[11px] text-muted-foreground">주민번호<ReqMark k="resident_no" /></Label>
                           <MaskedSSNInput value={f("resident_no")} onChange={v => set("resident_no", v)} className={`h-7 text-[12px] mt-1 ${reqCls("resident_no")}`} />
                         </div>
+                        <div>
+                          <Label className="text-[11px] text-muted-foreground">배우자 연락처<ReqMark k="spouse_phone" /></Label>
+                          <Input
+                            value={f("spouse_phone")}
+                            onChange={e => set("spouse_phone", e.target.value)}
+                            placeholder="010-0000-0000"
+                            className={`h-7 text-[12px] mt-1 ${reqCls("spouse_phone")}`}
+                          />
+                        </div>
                       </div>
                     </section>
 
@@ -1179,12 +1188,34 @@ export default function BankDashboard() {
                             </button>
                           </div>
                         </div>
-                        <div>
-                          <Label className="text-[11px] text-muted-foreground">명의<ReqMark k="ownership" /></Label>
-                          <Select value={f("ownership")} onValueChange={v => set("ownership", v)}>
-                            <SelectTrigger className={`h-7 text-[12px] mt-1 ${reqCls("ownership")}`}><SelectValue placeholder="선택" /></SelectTrigger>
-                            <SelectContent>{["단독", "공동"].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent>
-                          </Select>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-[11px] text-muted-foreground">명의<ReqMark k="ownership" /></Label>
+                            <Select value={f("ownership")} onValueChange={v => set("ownership", v)}>
+                              <SelectTrigger className={`h-7 text-[12px] mt-1 ${reqCls("ownership")}`}><SelectValue placeholder="선택" /></SelectTrigger>
+                              <SelectContent>{["단독", "공동"].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label className="text-[11px] text-muted-foreground">이사일(입주일)<ReqMark k="moving_in_date" /></Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button variant="outline" className={`w-full h-7 text-[12px] mt-1 justify-start font-normal ${reqCls("moving_in_date")}`}>
+                                  <CalendarIcon className="mr-1.5 h-3 w-3 text-muted-foreground" />
+                                  {f("moving_in_date") ? f("moving_in_date") : <span className="text-muted-foreground">선택</span>}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={f("moving_in_date") ? new Date(f("moving_in_date")) : undefined}
+                                  onSelect={(date) => set("moving_in_date", date ? format(date, "yyyy-MM-dd") : "")}
+                                  locale={ko}
+                                  initialFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
+                          </div>
                         </div>
                         {f("ownership") === "공동" && (
                           <div className="space-y-1.5 mt-2 p-2 bg-blue-50 rounded">
@@ -1396,14 +1427,45 @@ export default function BankDashboard() {
                           />
                         </div>
                       </div>
+                      {/* v3: 가심사 결과 입력 (결과안내 단계 이후) */}
+                      <div className="grid grid-cols-3 gap-2 mt-2 pt-2 border-t border-dashed">
+                        <div>
+                          <Label className="text-[11px] text-muted-foreground">승인금액 (원)<ReqMark k="approved_amount" /></Label>
+                          <Input
+                            value={f("approved_amount") ? Number(f("approved_amount")).toLocaleString("ko-KR") : ""}
+                            onChange={e => set("approved_amount", parseAmount(e.target.value))}
+                            placeholder="350,000,000"
+                            className={`h-7 text-[12px] mt-1 ${reqCls("approved_amount")}`}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[11px] text-muted-foreground">금리 (%)<ReqMark k="approved_rate" /></Label>
+                          <Input
+                            value={f("approved_rate")}
+                            onChange={e => set("approved_rate", e.target.value)}
+                            placeholder="4.25"
+                            className={`h-7 text-[12px] mt-1 ${reqCls("approved_rate")}`}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[11px] text-muted-foreground">추가대출 (원)</Label>
+                          <Input
+                            value={f("additional_loan_amount") ? Number(f("additional_loan_amount")).toLocaleString("ko-KR") : ""}
+                            onChange={e => set("additional_loan_amount", parseAmount(e.target.value))}
+                            placeholder="0"
+                            className="h-7 text-[12px] mt-1"
+                          />
+                        </div>
+                      </div>
                     </section>
 
                     <section className="pt-3 border-t">
                       <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">일정</p>
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-4 gap-2">
                         {[
                           { label: "접수일", key: "receive_date" },
                           { label: "서류전달일", key: "document_date" },
+                          { label: "자서일", key: "signing_date" },
                           { label: "실행일", key: "execution_date" },
                         ].map(({ label, key }) => (
                           <div key={key}>
@@ -1427,6 +1489,35 @@ export default function BankDashboard() {
                             </Popover>
                           </div>
                         ))}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        <div>
+                          <Label className="text-[11px] text-muted-foreground">자서 시간</Label>
+                          <Input
+                            value={f("signing_time")}
+                            onChange={e => set("signing_time", e.target.value)}
+                            placeholder="14:00"
+                            className="h-7 text-[12px] mt-1"
+                          />
+                        </div>
+                      </div>
+                    </section>
+
+                    <section className="pt-3 border-t">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">대출 은행 담당자</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <Label className="text-[11px] text-muted-foreground">지점</Label>
+                          <Input value={f("bank_branch")} onChange={e => set("bank_branch", e.target.value)} placeholder="○○지점" className="h-7 text-[12px] mt-1" />
+                        </div>
+                        <div>
+                          <Label className="text-[11px] text-muted-foreground">담당자 전화</Label>
+                          <Input value={f("bank_manager_phone")} onChange={e => set("bank_manager_phone", e.target.value)} placeholder="02-0000-0000" className="h-7 text-[12px] mt-1" />
+                        </div>
+                        <div>
+                          <Label className="text-[11px] text-muted-foreground">담당자 팩스</Label>
+                          <Input value={f("bank_manager_fax")} onChange={e => set("bank_manager_fax", e.target.value)} placeholder="02-0000-0000" className="h-7 text-[12px] mt-1" />
+                        </div>
                       </div>
                     </section>
 
@@ -1493,6 +1584,45 @@ export default function BankDashboard() {
                         ))}
                       </div>
                     </section>
+
+                    {/* v3: 결과안내 단계 — 통보/수락 빠른 액션 */}
+                    {f("loan_status") === "result" && (
+                      <section className="pt-3 border-t">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">결과 통보</p>
+                        <div className="space-y-2">
+                          <Button
+                            size="sm"
+                            variant={f("approved_notified_at") ? "outline" : "default"}
+                            className="w-full h-7 text-[11px]"
+                            onClick={() => set("approved_notified_at", f("approved_notified_at") ? "" : new Date().toISOString())}
+                          >
+                            {f("approved_notified_at") ? `✓ 통보 완료 (${new Date(f("approved_notified_at")).toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })})` : "고객에게 통보"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={f("customer_accepted_at") ? "outline" : "default"}
+                            className="w-full h-7 text-[11px]"
+                            onClick={() => set("customer_accepted_at", f("customer_accepted_at") ? "" : new Date().toISOString())}
+                          >
+                            {f("customer_accepted_at") ? `✓ 고객 수락 (${new Date(f("customer_accepted_at")).toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })})` : "고객 수락 처리"}
+                          </Button>
+                        </div>
+                      </section>
+                    )}
+
+                    {/* v3: 취소 단계 — 취소사유 필수 */}
+                    {f("loan_status") === "cancel" && (
+                      <section className="pt-3 border-t">
+                        <Label className="text-[10px] font-semibold uppercase tracking-wide text-red-600">취소사유</Label>
+                        <textarea
+                          value={f("canceled_reason")}
+                          onChange={e => set("canceled_reason", e.target.value)}
+                          rows={3}
+                          placeholder="취소 사유 (필수)"
+                          className="w-full mt-1 border border-red-300 rounded p-2 text-[12px] resize-none focus:outline-none focus:ring-2 focus:ring-red-500 bg-red-50"
+                        />
+                      </section>
+                    )}
 
                     <section className="pt-3 border-t">
                       <Label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">메모</Label>

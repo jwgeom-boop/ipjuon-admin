@@ -12,6 +12,7 @@ import VendorManagement from "./pages/VendorManagement";
 import Notices from "./pages/Notices";
 import BankDashboard from "./pages/BankDashboard";
 import BankRequestDoc from "./pages/BankRequestDoc";
+import BankSettlement from "./pages/BankSettlement";
 import InviteLogs from "./pages/InviteLogs";
 import NotFound from "./pages/NotFound";
 
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/bank" element={<BankDashboard />} />
             <Route path="/bank/request/:kind" element={<BankRequestDoc />} />
+            <Route path="/bank/settlement/:id" element={<BankSettlement />} />
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route element={<AdminLayout />}>
               <Route path="/dashboard" element={<Dashboard />} />

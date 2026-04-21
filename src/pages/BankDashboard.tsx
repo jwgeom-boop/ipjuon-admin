@@ -709,6 +709,18 @@ export default function BankDashboard() {
               };
               const ActionBtn = ({ r }: { r: Consultation }) => {
                 const cur = STAGES.find(s => s.key === (r.loan_status ?? "apply"));
+                // 대출실행: 정산 화면으로 이동 (v3 §10)
+                if (cur?.key === "executing") {
+                  return (
+                    <Button
+                      size="sm"
+                      className="h-6 px-2 text-[10px] bg-amber-600 hover:bg-amber-700"
+                      onClick={(e) => { e.stopPropagation(); navigate(`/bank/settlement/${r.id}`); }}
+                    >
+                      정산 입력 →
+                    </Button>
+                  );
+                }
                 if (!cur?.next) return <span className="text-muted-foreground text-[11px]">-</span>;
                 return (
                   <Button

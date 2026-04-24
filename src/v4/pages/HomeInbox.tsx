@@ -18,6 +18,7 @@ import { InboxRow } from "../inbox/InboxRow";
 import { InboxDetail } from "../inbox/InboxDetail";
 import { CompletedDetail } from "../inbox/CompletedDetail";
 import { InboxEmpty } from "../inbox/InboxEmpty";
+import { StageTimeline, type TimelineStage } from "../inbox/StageTimeline";
 import ConsultationWizard from "./ConsultationWizard";
 import ReservationWizard from "./ReservationWizard";
 import SigningWizard from "./SigningWizard";
@@ -190,6 +191,12 @@ export default function HomeInbox() {
   const [done, setDone] = useState<Map<string, number>>(() => loadDone());
   const [query, setQuery] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
+  // 우측 패널에서 타임라인으로 이전 단계 조회 중일 때의 override.
+  // selectedId가 바뀌면 자동으로 재설정.
+  const [viewStageOverride, setViewStageOverride] = useState<TimelineStage | null>(null);
+  useEffect(() => {
+    setViewStageOverride(null);
+  }, [selectedId]);
 
   useEffect(() => {
     if (impersonating && loginId && managerDrillAssignee) {
@@ -926,7 +933,14 @@ export default function HomeInbox() {
           </section>
 
           {/* RIGHT: detail pane */}
-          <section style={{ minWidth: 0, overflow: "hidden" }}>
+          <section
+            style={{
+              minWidth: 0,
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
             {selectedTask ? (
               (() => {
                 const onEmbedComplete = () => {
@@ -934,87 +948,110 @@ export default function HomeInbox() {
                   setSelected(null);
                   refetchTasks();
                 };
-                // 대출 실행 완료 (backend done) → 읽기 전용 완료 패널
-                if (selectedTask.tag === "완료") {
-                  const reopen = async () => {
-                    const ok = window.confirm(
-                      `${selectedTask.customerName} 건을 실행 단계로 되돌립니다.\n계속할까요?`
+                // 현재 단계와 보기 단계 결정. 완료 태그면 currentStage='completed'.
+                const currentStage: TimelineStage =
+                  selectedTask.tag === "완료"
+                    ? "completed"
+                    : (effectiveStage(selectedTask) ?? "inbox");
+                const viewStage: TimelineStage = viewStageOverride ?? currentStage;
+
+                const reopen = async () => {
+                  const ok = window.confirm(
+                    `${selectedTask.customerName} 건을 실행 단계로 되돌립니다.\n계속할까요?`
+                  );
+                  if (!ok) return;
+                  try {
+                    await api.updateBankStatus(selectedTask.id, "executing");
+                    refetchTasks();
+                  } catch (e) {
+                    console.warn("[reopen]", e);
+                  }
+                };
+
+                const renderBody = () => {
+                  if (viewStage === "completed") {
+                    return (
+                      <CompletedDetail
+                        key={selectedTask.id}
+                        embed
+                        task={selectedTask}
+                        completedAt={done.get(selectedTask.id)}
+                        completedBy={effectiveAssignee ?? undefined}
+                        onUndoComplete={reopen}
+                        onCall={() => callTask(selectedTask)}
+                        onSms={() => smsTask(selectedTask)}
+                      />
                     );
-                    if (!ok) return;
-                    try {
-                      await api.updateBankStatus(selectedTask.id, "executing");
-                      refetchTasks();
-                    } catch (e) {
-                      console.warn("[reopen]", e);
-                    }
-                  };
+                  }
+                  if (viewStage === "inbox") {
+                    return (
+                      <ConsultationWizard
+                        key={`${selectedTask.id}-${viewStage}`}
+                        embed
+                        embedId={selectedTask.id}
+                        embedTask={selectedTask}
+                        onEmbedComplete={onEmbedComplete}
+                      />
+                    );
+                  }
+                  if (viewStage === "reservation") {
+                    return (
+                      <ReservationWizard
+                        key={`${selectedTask.id}-${viewStage}`}
+                        embed
+                        embedId={selectedTask.id}
+                        embedTask={selectedTask}
+                        onEmbedComplete={onEmbedComplete}
+                      />
+                    );
+                  }
+                  if (viewStage === "signing") {
+                    return (
+                      <SigningWizard
+                        key={`${selectedTask.id}-${viewStage}`}
+                        embed
+                        embedId={selectedTask.id}
+                        embedTask={selectedTask}
+                        onEmbedComplete={onEmbedComplete}
+                      />
+                    );
+                  }
+                  if (viewStage === "execution") {
+                    return (
+                      <ExecutionWizard
+                        key={`${selectedTask.id}-${viewStage}`}
+                        embedded
+                        idProp={selectedTask.id}
+                        embedTask={selectedTask}
+                        onComplete={onEmbedComplete}
+                      />
+                    );
+                  }
                   return (
-                    <CompletedDetail
-                      key={selectedTask.id}
-                      embed
+                    <InboxDetail
                       task={selectedTask}
-                      completedAt={done.get(selectedTask.id)}
-                      completedBy={effectiveAssignee ?? undefined}
-                      onUndoComplete={reopen}
-                      onCall={() => callTask(selectedTask)}
+                      done={done.has(selectedTask.id)}
+                      onOpenWizard={() => openWizard(selectedTask)}
                       onSms={() => smsTask(selectedTask)}
+                      onCall={() => callTask(selectedTask)}
+                      onComplete={() => toggleDone(selectedTask.id)}
                     />
                   );
-                }
-                const stage = effectiveStage(selectedTask);
-                if (stage === "inbox") {
-                  return (
-                    <ConsultationWizard
-                      key={selectedTask.id}
-                      embed
-                      embedId={selectedTask.id}
-                      embedTask={selectedTask}
-                      onEmbedComplete={onEmbedComplete}
-                    />
-                  );
-                }
-                if (stage === "reservation") {
-                  return (
-                    <ReservationWizard
-                      key={selectedTask.id}
-                      embed
-                      embedId={selectedTask.id}
-                      embedTask={selectedTask}
-                      onEmbedComplete={onEmbedComplete}
-                    />
-                  );
-                }
-                if (stage === "signing") {
-                  return (
-                    <SigningWizard
-                      key={selectedTask.id}
-                      embed
-                      embedId={selectedTask.id}
-                      embedTask={selectedTask}
-                      onEmbedComplete={onEmbedComplete}
-                    />
-                  );
-                }
-                if (stage === "execution") {
-                  return (
-                    <ExecutionWizard
-                      key={selectedTask.id}
-                      embedded
-                      idProp={selectedTask.id}
-                      embedTask={selectedTask}
-                      onComplete={onEmbedComplete}
-                    />
-                  );
-                }
+                };
+
                 return (
-                  <InboxDetail
-                    task={selectedTask}
-                    done={done.has(selectedTask.id)}
-                    onOpenWizard={() => openWizard(selectedTask)}
-                    onSms={() => smsTask(selectedTask)}
-                    onCall={() => callTask(selectedTask)}
-                    onComplete={() => toggleDone(selectedTask.id)}
-                  />
+                  <>
+                    <StageTimeline
+                      currentStage={currentStage}
+                      viewStage={viewStage}
+                      onJump={(s) =>
+                        setViewStageOverride(s === currentStage ? null : s)
+                      }
+                    />
+                    <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+                      {renderBody()}
+                    </div>
+                  </>
                 );
               })()
             ) : (

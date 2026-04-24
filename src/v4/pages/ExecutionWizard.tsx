@@ -152,8 +152,19 @@ export default function ExecutionWizard({ idProp, embedded, embedTask, onComplet
       <style>{`
         @media print {
           @page { size: A4 portrait; margin: 8mm; }
-          html, body { background: #fff !important; }
-          .v4-execution-wizard { background: #fff !important; }
+          html, body { background: #fff !important; overflow: visible !important; }
+          /* 임베드 모드(인박스 우측 패널)일 때 좌측 인박스 패널/헤더가 같이 인쇄되는 문제:
+             execution wizard 를 화면 전체로 띄워서 그 아래의 모든 요소를 가린다. */
+          .v4-execution-wizard {
+            background: #fff !important;
+            position: fixed !important;
+            inset: 0 !important;
+            width: 100% !important;
+            height: auto !important;
+            min-height: 0 !important;
+            z-index: 9999 !important;
+            overflow: visible !important;
+          }
           .v4-no-print { display: none !important; }
           .v4-execution-wizard, .v4-execution-wizard * {
             -webkit-print-color-adjust: exact;

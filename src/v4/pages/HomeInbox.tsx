@@ -113,17 +113,29 @@ const effectiveStage = (task: TaskItem): Stage | null => {
   return null;
 };
 
-function loadDone(): Set<string> {
-  if (typeof window === "undefined") return new Set();
+// Map<id, completedAt(ms)>. 구버전(string[])과 호환.
+function loadDone(): Map<string, number> {
+  if (typeof window === "undefined") return new Map();
   try {
     const raw = window.localStorage.getItem(DONE_STORAGE_KEY);
-    if (!raw) return new Set();
+    if (!raw) return new Map();
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) return new Set(parsed.filter((x) => typeof x === "string"));
+    if (Array.isArray(parsed)) {
+      // 구버전: ["id1","id2"] → 타임스탬프 모름, 0으로 기록
+      // 신버전: [["id1", 1714000000000], ...]
+      const m = new Map<string, number>();
+      for (const item of parsed) {
+        if (typeof item === "string") m.set(item, 0);
+        else if (Array.isArray(item) && typeof item[0] === "string") {
+          m.set(item[0], typeof item[1] === "number" ? item[1] : 0);
+        }
+      }
+      return m;
+    }
   } catch {
     /* noop */
   }
-  return new Set();
+  return new Map();
 }
 
 
@@ -174,7 +186,7 @@ export default function HomeInbox() {
     : searchParams.get("assignee") || ALL_ASSIGNEE;
   const selectedId = searchParams.get("selected");
 
-  const [done, setDone] = useState<Set<string>>(() => loadDone());
+  const [done, setDone] = useState<Map<string, number>>(() => loadDone());
   const [query, setQuery] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -255,7 +267,7 @@ export default function HomeInbox() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    window.localStorage.setItem(DONE_STORAGE_KEY, JSON.stringify(Array.from(done)));
+    window.localStorage.setItem(DONE_STORAGE_KEY, JSON.stringify(Array.from(done.entries())));
   }, [done]);
 
   const complexOptions = useMemo(
@@ -375,9 +387,9 @@ export default function HomeInbox() {
   const toggleDone = (id?: string | null) => {
     if (!id) return;
     setDone((prev) => {
-      const next = new Set(prev);
+      const next = new Map(prev);
       if (next.has(id)) next.delete(id);
-      else next.add(id);
+      else next.set(id, Date.now());
       return next;
     });
   };
@@ -924,9 +936,13 @@ export default function HomeInbox() {
                   return (
                     <CompletedDetail
                       key={selectedTask.id}
+                      embed
                       task={selectedTask}
+                      completedAt={done.get(selectedTask.id)}
+                      completedBy={effectiveAssignee ?? undefined}
                       onUndoComplete={() => toggleDone(selectedTask.id)}
                       onCall={() => callTask(selectedTask)}
+                      onSms={() => smsTask(selectedTask)}
                     />
                   );
                 }

@@ -66,12 +66,16 @@ type ConsultationWizardProps = {
 function taskToSeed(task?: import("../home/TaskRow").TaskItem) {
   if (!task) return undefined;
   const [dongHo, complex] = (task.addressLabel ?? "").split(" · ");
-  return {
+  // serverOverride 로 spread 될 때 undefined 가 base 값을 덮어쓰지 않도록 키 자체를 빼둔다.
+  const seed: Record<string, unknown> = {
     customerName: task.customerName,
     dongHo: (dongHo ?? "").replace(/동\s*/, "-").replace(/호\s*$/, "").trim(),
     complex,
     phone: task.phone,
   };
+  if (typeof task.loanAmount === "number") seed.desiredLoanAmount = task.loanAmount;
+  if (task.note) seed.consultationMemo = task.note;
+  return seed;
 }
 
 // /v4/wizard/consultation/:id 로 신규고객 등록 직후 진입 시,

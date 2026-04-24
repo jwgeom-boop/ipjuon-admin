@@ -350,6 +350,8 @@ export interface FixtureSeed {
   dongHo?: string;
   complex?: string;
   phone?: string;
+  desiredLoanAmount?: number;
+  consultationMemo?: string;
 }
 
 export function getConsultationFixture(id: string, seed?: FixtureSeed): ConsultationData {
@@ -365,5 +367,7 @@ export function getConsultationFixture(id: string, seed?: FixtureSeed): Consulta
     phone: seed.phone ?? base.phone,
     dong: seedDong || base.dong,
     ho: seedHo || base.ho,
+    desiredLoanAmount: seed.desiredLoanAmount ?? base.desiredLoanAmount,
+    consultationMemo: seed.consultationMemo ?? base.consultationMemo,
   };
 }

@@ -21,6 +21,7 @@ import { AddComplexModal } from "../home/AddComplexModal";
 import { InterventionQueue } from "../team/InterventionQueue";
 import { PipelineOverviewModal } from "../team/PipelineOverviewModal";
 import { getDemoAssigneeName } from "../auth/role";
+import { api } from "@/lib/api";
 
 const ALL_COMPLEXES = "전체 아파트";
 const ADD_COMPLEX_SENTINEL = "+ 새 아파트 추가";
@@ -914,12 +915,28 @@ export default function V4Home() {
             selectedComplex === ALL_COMPLEXES ? complexes[0] : selectedComplex
           }
           onClose={() => setNewCustomerOpen(false)}
-          onSubmit={(data: NewCustomerData) => {
-            // TODO: persist to backend; for now, navigate to consultation wizard with synthetic id
+          onSubmit={async (data: NewCustomerData) => {
             setNewCustomerOpen(false);
-            const id = `new-${Date.now()}`;
-            console.log("[NewCustomer]", id, data);
-            navigate(`/v4/wizard/consultation/${id}`);
+            try {
+              const created = await api.createBankConsultation({
+                resident_name: data.customerName,
+                resident_phone: data.phone,
+                complex_name: data.complex || undefined,
+                dong: data.dong || undefined,
+                ho: data.ho || undefined,
+                apt_type: data.size ? `${data.size}` : undefined,
+                loan_amount: data.loanAmount
+                  ? Number(data.loanAmount.replace(/[^0-9]/g, ""))
+                  : undefined,
+                memo: [data.source ? `유입경로: ${data.source}` : "", data.note]
+                  .filter(Boolean)
+                  .join("\n") || undefined,
+              });
+              navigate(`/v4/wizard/consultation/${created.id}`);
+            } catch (e) {
+              console.warn("[Home:createBankConsultation]", e);
+              window.alert("신규 고객 등록에 실패했습니다. 잠시 후 다시 시도해주세요.");
+            }
           }}
         />
       ) : null}

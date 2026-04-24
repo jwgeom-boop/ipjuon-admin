@@ -237,7 +237,6 @@ export default function BankDashboard() {
       );
     }
     // v3 §3.3 모드별 정렬
-    const now = Date.now();
     const sorted = [...result];
     if (effectiveMode === "moveIn") {
       // 이사일 D-day 오름차순 (가까운 순), 이사일 없는 행은 맨 뒤
@@ -247,11 +246,14 @@ export default function BankDashboard() {
         return da - db;
       });
     } else {
-      // 체류일 내림차순 (오래된 순)
+      // 평상시: 접수일 내림차순 (최신 접수 먼저), tie → 생성일 내림차순
       sorted.sort((a, b) => {
-        const sa = a.stage_changed_at ? now - new Date(a.stage_changed_at).getTime() : -1;
-        const sb = b.stage_changed_at ? now - new Date(b.stage_changed_at).getTime() : -1;
-        return sb - sa;
+        const da = a.receive_date ? new Date(a.receive_date).getTime() : 0;
+        const db = b.receive_date ? new Date(b.receive_date).getTime() : 0;
+        if (db !== da) return db - da;
+        const ca = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const cb = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return cb - ca;
       });
     }
     return sorted;
@@ -299,16 +301,18 @@ export default function BankDashboard() {
   const clearSelection = () => setSelectedIds(new Set());
   const selectAllVisible = () => setSelectedIds(new Set(filtered.map(r => r.id)));
 
-  const openRequestDoc = (kind: "balance" | "interim") => {
+  const openRequestDoc = (kind: "balance" | "interim" | "repayment") => {
     if (selectedIds.size === 0) { toast.error("고객을 먼저 선택해주세요."); return; }
     const rows = data.filter(r => selectedIds.has(r.id));
+    const isRepayment = kind === "repayment";
     sessionStorage.setItem("bank_request_doc_payload", JSON.stringify({
       bankName: bankName || "",
+      bankBranch: summary.bank_branch || "",
       complexFullName: summary.complex_full_name || summary.complex_name || "",
       bankManager: summary.bank_manager || "",
       bankPhone: summary.bank_phone || "",
       bankFax: summary.bank_fax || "",
-      rows: rows.map(r => ({
+      rows: rows.map(r => isRepayment ? r : ({
         resident_name: r.resident_name,
         resident_no: r.resident_no,
         dong: r.dong,
@@ -541,42 +545,42 @@ export default function BankDashboard() {
         </div>
       </header>
 
-      <div className="p-6 space-y-4">
+      <div className="px-4 py-3 space-y-2">
         {/* 상단 KPI 스트립 */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
           <Card className="border-l-4 border-l-blue-500">
-            <CardContent className="p-3">
-              <p className="text-[11px] text-muted-foreground">진행 중</p>
-              <p className="text-2xl font-bold text-gray-900 mt-0.5">{kpi.active}<span className="text-sm font-normal text-muted-foreground ml-1">건</span></p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">신청~실행예정 합계</p>
+            <CardContent className="py-1.5 px-2.5">
+              <p className="text-[10px] text-muted-foreground">진행 중</p>
+              <p className="text-lg font-bold text-gray-900 leading-tight">{kpi.active}<span className="text-[11px] font-normal text-muted-foreground ml-0.5">건</span></p>
+              <p className="text-[10px] text-muted-foreground leading-tight">신청~실행예정 합계</p>
             </CardContent>
           </Card>
           <Card className={`border-l-4 ${kpi.stuck > 0 ? "border-l-red-500" : "border-l-gray-300"}`}>
-            <CardContent className="p-3">
-              <p className="text-[11px] text-muted-foreground">정체</p>
-              <p className={`text-2xl font-bold mt-0.5 ${kpi.stuck > 0 ? "text-red-600" : "text-gray-900"}`}>{kpi.stuck}<span className="text-sm font-normal text-muted-foreground ml-1">건</span></p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">체류일 초과</p>
+            <CardContent className="py-1.5 px-2.5">
+              <p className="text-[10px] text-muted-foreground">정체</p>
+              <p className={`text-lg font-bold leading-tight ${kpi.stuck > 0 ? "text-red-600" : "text-gray-900"}`}>{kpi.stuck}<span className="text-[11px] font-normal text-muted-foreground ml-0.5">건</span></p>
+              <p className="text-[10px] text-muted-foreground leading-tight">체류일 초과</p>
             </CardContent>
           </Card>
           <Card className="border-l-4 border-l-amber-500">
-            <CardContent className="p-3">
-              <p className="text-[11px] text-muted-foreground">이번 주 실행예정</p>
-              <p className="text-2xl font-bold text-gray-900 mt-0.5">{kpi.weekExec}<span className="text-sm font-normal text-muted-foreground ml-1">건</span></p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">월~일 기준</p>
+            <CardContent className="py-1.5 px-2.5">
+              <p className="text-[10px] text-muted-foreground">이번 주 실행예정</p>
+              <p className="text-lg font-bold text-gray-900 leading-tight">{kpi.weekExec}<span className="text-[11px] font-normal text-muted-foreground ml-0.5">건</span></p>
+              <p className="text-[10px] text-muted-foreground leading-tight">월~일 기준</p>
             </CardContent>
           </Card>
           <Card className="border-l-4 border-l-green-500">
-            <CardContent className="p-3">
-              <p className="text-[11px] text-muted-foreground">이번 달 실행완료</p>
-              <p className="text-2xl font-bold text-gray-900 mt-0.5">{kpi.monthDoneCount}<span className="text-sm font-normal text-muted-foreground ml-1">건</span></p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">{formatMoney(kpi.monthDoneAmount)}</p>
+            <CardContent className="py-1.5 px-2.5">
+              <p className="text-[10px] text-muted-foreground">이번 달 실행완료</p>
+              <p className="text-lg font-bold text-gray-900 leading-tight">{kpi.monthDoneCount}<span className="text-[11px] font-normal text-muted-foreground ml-0.5">건</span></p>
+              <p className="text-[10px] text-muted-foreground leading-tight">{formatMoney(kpi.monthDoneAmount)}</p>
             </CardContent>
           </Card>
           <Card className="border-l-4 border-l-indigo-500">
-            <CardContent className="p-3">
-              <p className="text-[11px] text-muted-foreground">한도 소진</p>
-              <p className="text-2xl font-bold text-gray-900 mt-0.5">{kpi.limitPct}<span className="text-sm font-normal text-muted-foreground ml-0.5">%</span></p>
-              <div className="h-1.5 rounded bg-gray-200 overflow-hidden mt-1.5">
+            <CardContent className="py-1.5 px-2.5">
+              <p className="text-[10px] text-muted-foreground">한도 소진</p>
+              <p className="text-lg font-bold text-gray-900 leading-tight">{kpi.limitPct}<span className="text-[11px] font-normal text-muted-foreground ml-0.5">%</span></p>
+              <div className="h-1 rounded bg-gray-200 overflow-hidden mt-1">
                 <div
                   className={`h-full ${kpi.limitPct >= 90 ? "bg-red-500" : kpi.limitPct >= 70 ? "bg-amber-500" : "bg-indigo-500"}`}
                   style={{ width: `${Math.min(100, kpi.limitPct)}%` }}
@@ -649,8 +653,8 @@ export default function BankDashboard() {
         {/* 한도 게이지 (리스트/리포트에서 공통 상단) */}
         {(tab === "list" || tab === "report") && summary.total_limit > 0 && (
           <Card>
-            <CardContent className="p-3 space-y-2">
-              <div className="flex justify-between text-xs">
+            <CardContent className="px-3 py-1.5 space-y-1">
+              <div className="flex justify-between text-[11px]">
                 <span className="font-medium">
                   한도 소진 · 승인번호 {summary.approval_no || "-"}
                 </span>
@@ -658,7 +662,7 @@ export default function BankDashboard() {
                   {formatMoney(summary.total_amount)} / 총 {Math.round((summary.total_limit || 0) / 100_000_000)}억원 ({Math.round(((summary.total_amount || 0) / (summary.total_limit || 1)) * 100)}%)
                 </span>
               </div>
-              <div className="h-2 rounded bg-gray-200 overflow-hidden">
+              <div className="h-1.5 rounded bg-gray-200 overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-blue-400 to-blue-600"
                   style={{ width: `${Math.min(100, ((summary.total_amount || 0) / (summary.total_limit || 1)) * 100)}%` }}
@@ -676,10 +680,12 @@ export default function BankDashboard() {
                 className={`shadow-sm cursor-pointer transition-colors ${statusFilter === "전체" ? "bg-blue-100 border-blue-400" : "hover:bg-blue-50"}`}
                 onClick={() => setStatusFilter("전체")}
               >
-                <CardContent className="p-2 text-center">
-                  <Inbox className="h-4 w-4 mx-auto text-muted-foreground" />
-                  <p className="text-[10px] text-muted-foreground mt-1">전체</p>
-                  <p className="text-base font-bold">{data.length}</p>
+                <CardContent className="px-2 py-1.5 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Inbox className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-[11px] text-muted-foreground">전체</span>
+                  </div>
+                  <span className="text-sm font-bold">{data.length}</span>
                 </CardContent>
               </Card>
               {STAGES.map(s => {
@@ -692,10 +698,12 @@ export default function BankDashboard() {
                     className={`shadow-sm cursor-pointer transition-colors ${active ? "bg-blue-100 border-blue-400" : "hover:bg-blue-50"}`}
                     onClick={() => setStatusFilter(s.label)}
                   >
-                    <CardContent className="p-2 text-center">
-                      <Icon className="h-4 w-4 mx-auto text-muted-foreground" />
-                      <p className="text-[10px] text-muted-foreground mt-1">{s.label}</p>
-                      <p className="text-base font-bold">{count}</p>
+                    <CardContent className="px-2 py-1.5 flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-[11px] text-muted-foreground">{s.label}</span>
+                      </div>
+                      <span className="text-sm font-bold">{count}</span>
                     </CardContent>
                   </Card>
                 );
@@ -703,44 +711,44 @@ export default function BankDashboard() {
             </div>
 
             {/* 빠른 검색 + 필터 */}
-            <div className="flex flex-wrap gap-3 items-center">
+            <div className="flex flex-wrap gap-2 items-center">
               <div className="relative flex-1 min-w-[200px] max-w-xs">
-                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
                   placeholder="고객명 / 동호수 / 전화 검색"
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  className="pl-8 h-9"
+                  className="pl-7 h-8 text-[12px]"
                 />
               </div>
               <Select value={divFilter} onValueChange={setDivFilter}>
-                <SelectTrigger className="w-28 h-9"><SelectValue placeholder="구분" /></SelectTrigger>
+                <SelectTrigger className="w-24 h-8 text-[12px]"><SelectValue placeholder="구분" /></SelectTrigger>
                 <SelectContent>
                   {["전체", "조합", "일반", "고정", "변동"].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Select value={ownFilter} onValueChange={setOwnFilter}>
-                <SelectTrigger className="w-28 h-9"><SelectValue placeholder="명의" /></SelectTrigger>
+                <SelectTrigger className="w-24 h-8 text-[12px]"><SelectValue placeholder="명의" /></SelectTrigger>
                 <SelectContent>
                   {["전체", "단독", "공동"].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-32 h-9"><SelectValue placeholder="단계" /></SelectTrigger>
+                <SelectTrigger className="w-28 h-8 text-[12px]"><SelectValue placeholder="단계" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="전체">전체</SelectItem>
                   {STAGES.map(s => <SelectItem key={s.key} value={s.label}>{s.label}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <span className="text-sm text-muted-foreground ml-auto">
+              <span className="text-[11px] text-muted-foreground ml-auto">
                 {selectedIds.size > 0 && <span className="mr-2 text-blue-600 font-medium">선택 {selectedIds.size}건 · </span>}
                 총 {filtered.length}건
               </span>
-              <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
-                <RefreshCw className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} /> 새로고침
+              <Button variant="outline" size="sm" className="h-8 text-[11px]" onClick={fetchData} disabled={loading}>
+                <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loading ? "animate-spin" : ""}`} /> 새로고침
               </Button>
-              <Button variant="outline" size="sm" onClick={handleExcel}>
-                <Download className="h-4 w-4 mr-1" /> 엑셀
+              <Button variant="outline" size="sm" className="h-8 text-[11px]" onClick={handleExcel}>
+                <Download className="h-3.5 w-3.5 mr-1" /> 엑셀
               </Button>
             </div>
 
@@ -787,36 +795,36 @@ export default function BankDashboard() {
                 );
               };
 
-              type Col = { label: string; w?: string; cell: (r: Consultation, i: number) => any };
+              type Col = { label: string; w?: string; align?: string; cell: (r: Consultation, i: number) => any };
               const colCheckbox: Col = {
-                label: "", w: "w-8",
+                label: "", w: "w-10",
                 cell: (r) => (
                   <span onClick={(e) => e.stopPropagation()}>
                     <Checkbox checked={selectedIds.has(r.id)} onCheckedChange={() => toggleSelect(r.id)} />
                   </span>
                 ),
               };
-              const colName: Col = { label: "고객명", cell: (r) => (
+              const colName: Col = { label: "고객명", w: "w-24", cell: (r) => (
                 <span className="font-medium">{r.resident_name}{r.memo && <span title={r.memo} className="ml-1 text-amber-500">🔖</span>}</span>
               )};
-              const colPhone: Col = { label: "연락처", cell: (r) => r.resident_phone ?? "-" };
+              const colPhone: Col = { label: "연락처", w: "w-32", cell: (r) => r.resident_phone ?? "-" };
               const colDongHo: Col = { label: "동/호", w: "w-20", cell: dHo };
               const colManager: Col = { label: "담당", w: "w-16", cell: (r) => r.manager ?? "-" };
-              const colBank: Col = { label: "대출은행", cell: (r) => r.vendor_name ?? "-" };
-              const colBankBranch: Col = { label: "은행/담당자", cell: (r) => `${r.vendor_name ?? "-"} ${r.bank_branch ?? ""} ${r.bank_manager_phone ? `(${r.bank_manager_phone})` : ""}`.trim() };
+              const colBank: Col = { label: "대출은행", w: "w-24", cell: (r) => r.vendor_name ?? "-" };
+              const colBankBranch: Col = { label: "은행/담당자", w: "w-48", cell: (r) => `${r.vendor_name ?? "-"} ${r.bank_branch ?? ""} ${r.bank_manager_phone ? `(${r.bank_manager_phone})` : ""}`.trim() };
               const colReceiveDate: Col = { label: "접수일", w: "w-24", cell: (r) => r.receive_date ?? "-" };
               const colDocDate: Col = { label: "서류전달일", w: "w-24", cell: (r) => r.document_date ?? "-" };
               const colSigningDate: Col = { label: "자서일", w: "w-28", cell: (r) => r.signing_date ? `${r.signing_date}${r.signing_time ? ` ${r.signing_time}` : ""}` : "-" };
               const colExecDate: Col = { label: "실행일", w: "w-24", cell: (r) => r.execution_date ?? "-" };
               const colMovingDday: Col = { label: "입주 D-day", w: "w-20", cell: (r) => dDayBadge(r.moving_in_date) };
-              const colApprovedAmount: Col = { label: "승인금액", cell: (r) => formatMoney(r.approved_amount) };
-              const colApprovedRate: Col = { label: "금리", w: "w-16", cell: ratePct };
+              const colApprovedAmount: Col = { label: "승인금액", w: "w-24", align: "text-right", cell: (r) => formatMoney(r.approved_amount) };
+              const colApprovedRate: Col = { label: "금리", w: "w-16", align: "text-right", cell: ratePct };
               const colNotified: Col = { label: "통보", w: "w-16", cell: (r) => r.approved_notified_at ? <span className="text-green-600">✓</span> : <span className="text-muted-foreground">대기</span> };
-              const colDocsReady: Col = { label: "지참서류", cell: (r) => {
+              const colDocsReady: Col = { label: "지참서류", w: "w-20", cell: (r) => {
                 const d = (r.documents_checked || "").split(",").filter(Boolean).length;
                 return <span className={d >= 4 ? "text-green-600" : "text-amber-600"}>{d}/4</span>;
               }};
-              const colRequiredFunds: Col = { label: "필요자금", cell: (r) => {
+              const colRequiredFunds: Col = { label: "필요자금", w: "w-28", align: "text-right", cell: (r) => {
                 const A = (r.settle_middle_principal || 0) + (r.settle_middle_interest || 0) + (r.settle_balance_principal || 0) + (r.settle_balance_interest || 0)
                        + (r.settle_balcony || 0) + (r.settle_options || 0) + (r.settle_guarantee_fee || 0) + (r.settle_mgmt_fee || 0)
                        + (r.settle_moving_allowance || 0) + (r.settle_stamp_duty || 0) + (r.settle_stamp_duty_additional || 0);
@@ -827,8 +835,8 @@ export default function BankDashboard() {
                 return <span className={`font-medium ${cls}`}>{formatMoney(Math.abs(need))}{need > 0 ? " 추가" : need < 0 ? " 환급" : ""}</span>;
               }};
               const colSettleStatus: Col = { label: "정산", w: "w-16", cell: (r) => r.execution_completed ? <span className="text-green-600">완료</span> : <span className="text-amber-600">대기</span> };
-              const colCanceledReason: Col = { label: "취소사유", cell: (r) => r.canceled_reason ?? r.special_notes ?? "-" };
-              const colAmount: Col = { label: "신청금", cell: (r) => formatMoney(r.loan_amount) };
+              const colCanceledReason: Col = { label: "취소사유", w: "w-40", cell: (r) => r.canceled_reason ?? r.special_notes ?? "-" };
+              const colAmount: Col = { label: "신청금", w: "w-24", align: "text-right", cell: (r) => formatMoney(r.loan_amount) };
               const colDivision: Col = { label: "구분", w: "w-14", cell: (r) => r.division ?? "-" };
               const colOwnership: Col = { label: "명의", w: "w-14", cell: (r) => r.ownership ?? "-" };
               const colProduct: Col = { label: "상품", w: "w-14", cell: (r) => r.product ?? "-" };
@@ -855,11 +863,11 @@ export default function BankDashboard() {
 
               return (
                 <div className="border rounded-lg bg-white overflow-x-auto">
-                  <Table>
+                  <Table className="table-fixed w-full">
                     <TableHeader>
-                      <TableRow className="h-8">
+                      <TableRow className="h-9">
                         {cols.map((c, idx) => (
-                          <TableHead key={idx} className={`text-[10px] uppercase tracking-wide py-1 ${c.w ?? ""}`}>
+                          <TableHead key={idx} className={`text-[11px] uppercase tracking-wide py-1.5 ${c.align ?? ""} ${c.w ?? ""}`}>
                             {idx === 0 ? (
                               <Checkbox
                                 checked={filtered.length > 0 && filtered.every(r => selectedIds.has(r.id))}
@@ -876,16 +884,16 @@ export default function BankDashboard() {
                       ) : filtered.length === 0 ? (
                         <TableRow><TableCell colSpan={cols.length} className="text-center py-10 text-muted-foreground">데이터가 없습니다.</TableCell></TableRow>
                       ) : filtered.slice(0, 50).map((r, i) => (
-                        <TableRow key={r.id} className="cursor-pointer hover:bg-blue-50 h-7" onClick={() => openDetail(r)}>
+                        <TableRow key={r.id} className="cursor-pointer hover:bg-blue-50 h-8" onClick={() => openDetail(r)}>
                           {cols.map((c, idx) => (
-                            <TableCell key={idx} className="text-[11px] py-1">{c.cell(r, i)}</TableCell>
+                            <TableCell key={idx} className={`text-[13px] py-1.5 whitespace-nowrap overflow-hidden text-ellipsis ${c.align ?? ""}`}>{c.cell(r, i)}</TableCell>
                           ))}
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
                   {filtered.length > 50 && (
-                    <div className="px-3 py-2 text-[11px] text-muted-foreground bg-gray-50 border-t">
+                    <div className="px-3 py-2 text-[12px] text-muted-foreground bg-gray-50 border-t">
                       상위 50건 표시 · 전체 {filtered.length}건 (필터/검색으로 좁혀주세요)
                     </div>
                   )}
@@ -927,12 +935,15 @@ export default function BankDashboard() {
                       </div>
                     </div>
 
-                    <div className="flex gap-2">
-                      <Button onClick={() => openRequestDoc("balance")} className="flex-1 bg-green-600 hover:bg-green-700">
-                        <Printer className="h-4 w-4 mr-1" /> 잔금조회 요청서 만들기
+                    <div className="flex flex-wrap gap-2">
+                      <Button onClick={() => openRequestDoc("balance")} className="flex-1 min-w-[180px] bg-green-600 hover:bg-green-700">
+                        <Printer className="h-4 w-4 mr-1" /> 잔금조회 요청서
                       </Button>
-                      <Button onClick={() => openRequestDoc("interim")} className="flex-1 bg-orange-600 hover:bg-orange-700">
-                        <Printer className="h-4 w-4 mr-1" /> 중도금조회 요청서 만들기
+                      <Button onClick={() => openRequestDoc("interim")} className="flex-1 min-w-[180px] bg-orange-600 hover:bg-orange-700">
+                        <Printer className="h-4 w-4 mr-1" /> 중도금조회 요청서
+                      </Button>
+                      <Button onClick={() => openRequestDoc("repayment")} className="flex-1 min-w-[180px] bg-blue-600 hover:bg-blue-700">
+                        <Printer className="h-4 w-4 mr-1" /> 상환조회 (개인별)
                       </Button>
                       <Button variant="outline" onClick={clearSelection}>선택 해제</Button>
                     </div>
@@ -1294,44 +1305,6 @@ export default function BankDashboard() {
                         )}
                       </div>
                     </section>
-
-                    <section className="pt-3 border-t">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">서류</p>
-                        <span className="text-[11px]">
-                          <span className={docsMissingRequired > 0 ? "text-red-600 font-semibold" : "text-green-600 font-semibold"}>{checkedDocCount}</span>
-                          <span className="text-muted-foreground">/{allDocs.length}</span>
-                          {docsMissingRequired > 0 && <span className="text-red-600 ml-1">· 미수령 {docsMissingRequired}</span>}
-                        </span>
-                      </div>
-                      <div className="space-y-1">
-                        {currentStageDocs.map(d => {
-                          const checked = docsSet.has(d.key);
-                          const missingHere = d.required && !checked;
-                          return (
-                            <label
-                              key={d.key}
-                              className={`flex items-start gap-2 px-2 py-1.5 rounded border cursor-pointer transition
-                                ${checked ? "bg-green-50 border-green-200" :
-                                  missingHere ? "bg-red-50 border-red-200" :
-                                  "bg-white border-border hover:bg-gray-50"}`}
-                            >
-                              <Checkbox checked={checked} onCheckedChange={() => toggleDoc(d.key)} className="mt-0.5 h-4 w-4" />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1 flex-wrap">
-                                  <span className={`text-[12px] ${checked ? "line-through text-muted-foreground" : "font-medium text-gray-800"}`}>{d.label}</span>
-                                  {d.required && (
-                                    <span className={`text-[9px] px-1 py-0 rounded border ${checked ? "bg-green-100 text-green-700 border-green-200" : "bg-red-100 text-red-700 border-red-200"}`}>필수</span>
-                                  )}
-                                </div>
-                                {d.note && <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{d.note}</p>}
-                              </div>
-                            </label>
-                          );
-                        })}
-                        {currentStageDocs.length === 0 && <p className="text-[11px] text-muted-foreground px-2 py-2">해당 단계 서류 없음</p>}
-                      </div>
-                    </section>
                   </div>
 
                   {/* ────── 가운데: 고객 현황 + 대출 조건 + 금액 KPI + 일정 + 계좌 ────── */}
@@ -1625,6 +1598,44 @@ export default function BankDashboard() {
                           ))}
                         </div>
                       )}
+                    </section>
+
+                    <section className="pt-3 border-t">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">필수 서류</p>
+                        <span className="text-[10px]">
+                          <span className={docsMissingRequired > 0 ? "text-red-600 font-semibold" : "text-green-600 font-semibold"}>{checkedDocCount}</span>
+                          <span className="text-muted-foreground">/{allDocs.length}</span>
+                          {docsMissingRequired > 0 && <span className="text-red-600 ml-1">· 미수령 {docsMissingRequired}</span>}
+                        </span>
+                      </div>
+                      <div className="space-y-1">
+                        {currentStageDocs.map(d => {
+                          const checked = docsSet.has(d.key);
+                          const missingHere = d.required && !checked;
+                          return (
+                            <label
+                              key={d.key}
+                              className={`flex items-start gap-2 px-2 py-1.5 rounded border cursor-pointer transition
+                                ${checked ? "bg-green-50 border-green-200" :
+                                  missingHere ? "bg-red-50 border-red-200" :
+                                  "bg-white border-border hover:bg-gray-50"}`}
+                            >
+                              <Checkbox checked={checked} onCheckedChange={() => toggleDoc(d.key)} className="mt-0.5 h-4 w-4" />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  <span className={`text-[12px] ${checked ? "line-through text-muted-foreground" : "font-medium text-gray-800"}`}>{d.label}</span>
+                                  {d.required && (
+                                    <span className={`text-[9px] px-1 py-0 rounded border ${checked ? "bg-green-100 text-green-700 border-green-200" : "bg-red-100 text-red-700 border-red-200"}`}>필수</span>
+                                  )}
+                                </div>
+                                {d.note && <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{d.note}</p>}
+                              </div>
+                            </label>
+                          );
+                        })}
+                        {currentStageDocs.length === 0 && <p className="text-[11px] text-muted-foreground px-2 py-2">해당 단계 서류 없음</p>}
+                      </div>
                     </section>
 
                     <section className="pt-3 border-t">

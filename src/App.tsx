@@ -17,6 +17,15 @@ import BankRequestDoc from "./pages/BankRequestDoc";
 import BankSettlement from "./pages/BankSettlement";
 import InviteLogs from "./pages/InviteLogs";
 import NotFound from "./pages/NotFound";
+import V4Home from "./v4/pages/Home";
+import HomeInbox from "./v4/pages/HomeInbox";
+import TeamDashboard from "./v4/pages/TeamDashboard";
+import ExecutionWizard from "./v4/pages/ExecutionWizard";
+import SigningWizard from "./v4/pages/SigningWizard";
+import ConsultationWizard from "./v4/pages/ConsultationWizard";
+import ReservationWizard from "./v4/pages/ReservationWizard";
+import ChangePassword from "./v4/pages/ChangePassword";
+import { V4Layout } from "./v4/layout/V4Layout";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +43,16 @@ const App = () => (
             <Route path="/bank/calendar" element={<BankCalendar />} />
             <Route path="/bank/request/:kind" element={<BankRequestDoc />} />
             <Route path="/bank/settlement/:id" element={<BankSettlement />} />
+            <Route element={<V4Layout />}>
+              <Route path="/v4" element={<HomeInbox />} />
+              <Route path="/v4/team" element={<TeamDashboard />} />
+              <Route path="/v4/change-password" element={<ChangePassword />} />
+              <Route path="/v4/legacy" element={<V4Home />} />
+              <Route path="/v4/wizard/execution/:id" element={<ExecutionWizard />} />
+              <Route path="/v4/wizard/signing/:id" element={<SigningWizard />} />
+              <Route path="/v4/wizard/reservation/:id" element={<ReservationWizard />} />
+              <Route path="/v4/wizard/consultation/:id" element={<ConsultationWizard />} />
+            </Route>
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route element={<AdminLayout />}>
               <Route path="/dashboard" element={<Dashboard />} />

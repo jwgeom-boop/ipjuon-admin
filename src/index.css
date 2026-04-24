@@ -103,3 +103,133 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* ============================================================
+   v4 Design Tokens — Notion / Linear style
+   (DESIGN_v4.md §11)
+   ============================================================ */
+:root {
+  --v4-bg-primary: #ffffff;
+  --v4-bg-secondary: #fafaf9;
+  --v4-bg-tertiary: #f5f4f1;
+  --v4-bg-subtle: #f0efeb;
+
+  --v4-text-primary: #1a1a1a;
+  --v4-text-secondary: #4a4a4a;
+  --v4-text-tertiary: #9a9996;
+  --v4-text-muted: #cbcac5;
+
+  --v4-info: #2563eb;
+  --v4-success: #16a34a;
+  --v4-warning: #d97706;
+  --v4-danger: #dc2626;
+
+  --v4-bg-info: #eff6ff;
+  --v4-bg-success: #f0fdf4;
+  --v4-bg-warning: #fffbeb;
+  --v4-bg-danger: #fef2f2;
+
+  --v4-border-info: #bfdbfe;
+  --v4-border-success: #bbf7d0;
+  --v4-border-warning: #fde68a;
+  --v4-border-danger: #fecaca;
+
+  --v4-text-info: #1e40af;
+  --v4-text-success: #166534;
+  --v4-text-warning: #92400e;
+  --v4-text-danger: #991b1b;
+
+  --v4-border-light: #f0efeb;
+  --v4-border-tertiary: #f0efeb;
+  --v4-border-secondary: #eae8e3;
+  --v4-border-primary: #e5e3dd;
+
+  --v4-radius-sm: 3px;
+  --v4-radius-md: 5px;
+  --v4-radius-lg: 8px;
+
+  --v4-shadow-modal: 0 10px 38px rgba(0, 0, 0, 0.08);
+}
+
+.v4-root {
+  background: var(--v4-bg-primary);
+  color: var(--v4-text-primary);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.6;
+}
+
+.v4-root kbd.v4-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 10px;
+  color: var(--v4-text-secondary);
+  background: var(--v4-bg-secondary);
+  border: 1px solid var(--v4-border-tertiary);
+  border-radius: var(--v4-radius-sm);
+  line-height: 1;
+}
+
+.v4-root .v4-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Urgency pulse for critical marks */
+@keyframes v4-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.35); }
+  50%      { box-shadow: 0 0 0 5px rgba(220, 38, 38, 0); }
+}
+.v4-root .v4-mark-critical {
+  animation: v4-pulse 1.8s ease-in-out infinite;
+}
+
+/* Task row variants */
+.v4-root .v4-task-row {
+  position: relative;
+  transition: background 140ms ease;
+}
+.v4-root .v4-task-row:hover {
+  background: var(--v4-bg-secondary);
+}
+
+/* Tag variants */
+.v4-root .v4-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10.5px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  white-space: nowrap;
+  font-weight: 500;
+  letter-spacing: -0.1px;
+  border: 1px solid transparent;
+}
+.v4-root .v4-tag-neutral { background: var(--v4-bg-tertiary); border-color: var(--v4-border-primary); color: var(--v4-text-secondary); }
+.v4-root .v4-tag-info    { background: var(--v4-bg-info);     border-color: var(--v4-border-info);    color: var(--v4-text-info); }
+.v4-root .v4-tag-success { background: var(--v4-bg-success);  border-color: var(--v4-border-success); color: var(--v4-text-success); }
+.v4-root .v4-tag-warning { background: var(--v4-bg-warning);  border-color: var(--v4-border-warning); color: var(--v4-text-warning); }
+.v4-root .v4-tag-danger  { background: var(--v4-bg-danger);   border-color: var(--v4-border-danger);  color: var(--v4-text-danger); }
+
+/* Section header dot */
+.v4-root .v4-section-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* Panel title with accent icon */
+.v4-root .v4-panel-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--v4-radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}

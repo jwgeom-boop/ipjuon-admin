@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LogIn } from "lucide-react";
+import { parseBankLoginId } from "@/v4/auth/role";
 
 const Login = () => {
   const [id, setId] = useState("");
@@ -21,7 +22,15 @@ const Login = () => {
     const result = await login(id, password);
     if (result.success) {
       if (result.role === "bank") {
-        navigate("/bank");
+        if (result.must_change_password) {
+          navigate("/v4/change-password");
+        } else {
+          // bank_role 우선 (백엔드 신규), 없으면 loginId 파싱 폴백
+          const isManager = result.bank_role
+            ? result.bank_role === "bank_manager"
+            : parseBankLoginId(id)?.role === "manager";
+          navigate(isManager ? "/v4/team" : "/v4");
+        }
       } else {
         navigate("/dashboard");
       }

@@ -1,16 +1,21 @@
 import { createContext, useContext, useState, ReactNode } from "react";
 
-const API_BASE_URL = 'https://banking-coroner-grader.ngrok-free.dev/api';
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)
+  ?? 'https://banking-coroner-grader.ngrok-free.dev/api';
 const HEADERS = { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' };
 
 interface AuthContextType {
   isAuthenticated: boolean;
   role: string | null;
+  bankRole: string | null; // bank_manager / bank_consultant (백엔드 신규)
   bankName: string | null;
+  displayName: string | null; // 상담사 표시명 (예: 김주임)
+  mustChangePassword: boolean;
   loginId: string | null;
   token: string | null;
-  login: (id: string, password: string) => Promise<{ success: boolean; role?: string; bank_name?: string }>;
+  login: (id: string, password: string) => Promise<{ success: boolean; role?: string; bank_name?: string; bank_role?: string; must_change_password?: boolean }>;
   logout: () => void;
+  clearMustChangePassword: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -28,8 +33,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [role, setRole] = useState<string | null>(
     () => sessionStorage.getItem("admin_role")
   );
+  const [bankRole, setBankRole] = useState<string | null>(
+    () => sessionStorage.getItem("bank_role")
+  );
   const [bankName, setBankName] = useState<string | null>(
     () => sessionStorage.getItem("bank_name")
+  );
+  const [displayName, setDisplayName] = useState<string | null>(
+    () => sessionStorage.getItem("display_name")
+  );
+  const [mustChangePassword, setMustChangePassword] = useState<boolean>(
+    () => sessionStorage.getItem("must_change_password") === "true"
   );
   const [loginId, setLoginId] = useState<string | null>(
     () => sessionStorage.getItem("login_id")
@@ -59,7 +73,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setBankName(data.bank_name);
           sessionStorage.setItem("bank_name", data.bank_name);
         }
-        return { success: true, role: data.role, bank_name: data.bank_name };
+        if (data.bank_role) {
+          setBankRole(data.bank_role);
+          sessionStorage.setItem("bank_role", data.bank_role);
+        }
+        if (data.display_name) {
+          setDisplayName(data.display_name);
+          sessionStorage.setItem("display_name", data.display_name);
+        }
+        const must = Boolean(data.must_change_password);
+        setMustChangePassword(must);
+        sessionStorage.setItem("must_change_password", must ? "true" : "false");
+        return { success: true, role: data.role, bank_name: data.bank_name, bank_role: data.bank_role, must_change_password: must };
       }
     } catch { /* ignore */ }
     return { success: false };
@@ -68,18 +93,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = () => {
     setIsAuthenticated(false);
     setRole(null);
+    setBankRole(null);
     setBankName(null);
+    setDisplayName(null);
+    setMustChangePassword(false);
     setLoginId(null);
     setToken(null);
     sessionStorage.removeItem("admin_auth");
     sessionStorage.removeItem("admin_role");
+    sessionStorage.removeItem("bank_role");
     sessionStorage.removeItem("bank_name");
+    sessionStorage.removeItem("display_name");
+    sessionStorage.removeItem("must_change_password");
     sessionStorage.removeItem("login_id");
     sessionStorage.removeItem("auth_token");
   };
 
+  const clearMustChangePassword = () => {
+    setMustChangePassword(false);
+    sessionStorage.setItem("must_change_password", "false");
+  };
+
   return (
-    <AuthContext.Provider value={{ isAuthenticated, role, bankName, loginId, token, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, role, bankRole, bankName, displayName, mustChangePassword, loginId, token, login, logout, clearMustChangePassword }}>
       {children}
     </AuthContext.Provider>
   );

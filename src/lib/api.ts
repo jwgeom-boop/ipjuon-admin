@@ -1,4 +1,5 @@
-const API_BASE_URL = 'https://banking-coroner-grader.ngrok-free.dev/api'
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)
+  ?? 'https://banking-coroner-grader.ngrok-free.dev/api'
 
 const getHeaders = (): Record<string, string> => {
   const token = sessionStorage.getItem('auth_token')
@@ -94,6 +95,24 @@ export const api = {
     return res.json()
   },
 
+  // 팀장이 자기 팀 상담사 비번 초기화
+  resetConsultantPassword: async (targetLoginId: string) => {
+    const res = await fetch(`${API_BASE_URL}/auth/reset-consultant-password`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ targetLoginId }),
+    })
+    if (!res.ok) throw new Error('비밀번호 초기화 실패')
+    return res.json()
+  },
+
+  // 팀장이 본인 팀 상담사 목록 조회
+  getTeamConsultants: async () => {
+    const res = await fetch(`${API_BASE_URL}/bank/team/consultants`, { headers: getHeaders() })
+    if (!res.ok) throw new Error('팀원 조회 실패')
+    return res.json()
+  },
+
   // 은행 상담사 전용
   getBankConsultations: async (params?: Record<string, string>) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : ''
@@ -106,6 +125,12 @@ export const api = {
       method: 'PUT', headers: getHeaders(), body: JSON.stringify(data),
     })
     if (!res.ok) throw new Error('저장 실패')
+    return res.json()
+  },
+  getMyConsultations: async (includeDone = false) => {
+    const query = includeDone ? '?include_done=true' : ''
+    const res = await fetch(`${API_BASE_URL}/bank/consultations/mine${query}`, { headers: getHeaders() })
+    if (!res.ok) throw new Error('내 담당 건 조회 실패')
     return res.json()
   },
   updateBankStatus: async (id: string, loan_status: string) => {

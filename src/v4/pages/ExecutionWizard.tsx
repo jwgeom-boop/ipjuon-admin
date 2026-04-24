@@ -153,16 +153,20 @@ export default function ExecutionWizard({ idProp, embedded, embedTask, onComplet
         @media print {
           @page { size: A4 portrait; margin: 8mm; }
           html, body { background: #fff !important; overflow: visible !important; }
-          /* 임베드 모드(인박스 우측 패널)일 때 좌측 인박스 패널/헤더가 같이 인쇄되는 문제:
-             execution wizard 를 화면 전체로 띄워서 그 아래의 모든 요소를 가린다. */
+          /* 임베드 모드(인박스 우측 패널)일 때 좌측 인박스 패널/헤더가 같이 인쇄되는 문제 해결:
+             body 의 모든 요소를 숨기고, execution wizard 만 보이게 한 뒤
+             absolute 로 좌상단으로 이동시킨다. (position:fixed 는 부모의 transform/overflow
+             때문에 막힐 수 있어 visibility 트릭이 더 견고함.) */
+          body * { visibility: hidden !important; }
+          .v4-execution-wizard, .v4-execution-wizard * { visibility: visible !important; }
           .v4-execution-wizard {
-            background: #fff !important;
-            position: fixed !important;
-            inset: 0 !important;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
             width: 100% !important;
             height: auto !important;
             min-height: 0 !important;
-            z-index: 9999 !important;
+            background: #fff !important;
             overflow: visible !important;
           }
           .v4-no-print { display: none !important; }

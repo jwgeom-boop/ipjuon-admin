@@ -24,6 +24,7 @@ import ConsultationWizard from "./v4/pages/ConsultationWizard";
 import ReservationWizard from "./v4/pages/ReservationWizard";
 import ChangePassword from "./v4/pages/ChangePassword";
 import { V4Layout } from "./v4/layout/V4Layout";
+import { RouteTitle } from "./components/RouteTitle";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <RouteTitle />
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/bank" element={<BankDashboard />} />

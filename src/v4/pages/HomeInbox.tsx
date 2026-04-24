@@ -1092,9 +1092,10 @@ export default function HomeInbox() {
                   .join("\n") || undefined,
               });
               await refetchTasks();
-              navigate(`/v4/wizard/consultation/${created.id}`, {
-                state: { newCustomer: data },
-              });
+              // 풀스크린 위저드로 안 보내고 인박스 우측 패널에서 바로 상담 입력하도록.
+              // 신규-미상담(inbox) 카테고리로 전환해야 새로 들어온 행이 좌측 리스트에 보임.
+              setCategory("inbox");
+              setSelected(created.id);
             } catch (e) {
               console.warn("[createBankConsultation]", e);
               window.alert("신규 고객 등록에 실패했습니다. 잠시 후 다시 시도해주세요.");

@@ -20,7 +20,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { MANAGER_ASSIGNEE_NAME } from "../auth/role";
 import { AppShell } from "../layout/AppShell";
 import {
-  ALL_TASKS,
   ALL_COMPLEXES,
   ADD_COMPLEX_SENTINEL,
   DEFAULT_COMPLEXES,
@@ -28,6 +27,8 @@ import {
   STORAGE_KEY,
   getComplexFromAddress,
 } from "../data/samples";
+import { useMyConsultations } from "../data/useConsultations";
+import { api } from "@/lib/api";
 import { AddComplexModal } from "../home/AddComplexModal";
 import type { TaskItem } from "../home/TaskRow";
 import { UserMenu } from "../auth/UserMenu";
@@ -86,6 +87,11 @@ export default function TeamDashboard() {
   const navigate = useNavigate();
   const displayBank = bankName || "국민은행";
 
+  // 팀장은 본인 vendor_name 의 모든 상담 건을 받아옴 (백엔드 controller 분기 처리).
+  // useMyConsultations 가 10초 폴링 + 탭 가시성 동기화를 포함하므로
+  // 상담사가 신규 등록한 건이 자동으로 팀장 화면에 반영된다.
+  const { tasks: apiTasks, refetch: refetchTasks } = useMyConsultations();
+
   const [newCustomerOpen, setNewCustomerOpen] = useState(false);
   const [consultationListOpen, setConsultationListOpen] = useState(false);
   const [signingOpen, setSigningOpen] = useState(false);
@@ -125,14 +131,14 @@ export default function TeamDashboard() {
 
   const allMemberNames = useMemo(() => {
     const set = new Set<string>();
-    ALL_TASKS.forEach((t) => {
+    apiTasks.forEach((t) => {
       if (t.assignee?.trim()) set.add(t.assignee.trim());
     });
     Object.values(reassignMap).forEach((name) => {
       if (name?.trim()) set.add(name.trim());
     });
     return Array.from(set).sort();
-  }, [reassignMap]);
+  }, [apiTasks, reassignMap]);
 
   // 비활성 상담사는 신규 배정 드롭다운에서 숨김. "팀장"(직접 처리)은 항상 노출.
   const teamMembers = useMemo(
@@ -146,11 +152,11 @@ export default function TeamDashboard() {
 
   const effectiveTasks = useMemo(
     () =>
-      ALL_TASKS.map((t) => ({
+      apiTasks.map((t) => ({
         ...t,
         assignee: getEffectiveAssignee(t, reassignMap),
       })),
-    [reassignMap],
+    [apiTasks, reassignMap],
   );
 
   const handleDeactivateConfirm = (reassignTarget: string | null) => {
@@ -174,11 +180,11 @@ export default function TeamDashboard() {
 
   const originalAssigneeById = useMemo(() => {
     const m = new Map<string, string>();
-    ALL_TASKS.forEach((t) => {
+    apiTasks.forEach((t) => {
       if (t.assignee?.trim()) m.set(t.id, t.assignee.trim());
     });
     return m;
-  }, []);
+  }, [apiTasks]);
 
   const kpi = useMemo(() => {
     return {
@@ -814,11 +820,30 @@ export default function TeamDashboard() {
           complexes={complexes}
           defaultComplex={complexes[0]}
           onClose={() => setNewCustomerOpen(false)}
-          onSubmit={(data: NewCustomerData) => {
+          onSubmit={async (data: NewCustomerData) => {
             setNewCustomerOpen(false);
-            const id = `new-${Date.now()}`;
-            console.log("[TeamDashboard:NewCustomer]", id, data);
-            navigate(`/v4/wizard/consultation/${id}`);
+            try {
+              const created = await api.createBankConsultation({
+                resident_name: data.customerName,
+                resident_phone: data.phone,
+                complex_name: data.complex || undefined,
+                dong: data.dong || undefined,
+                ho: data.ho || undefined,
+                apt_type: data.size ? `${data.size}` : undefined,
+                loan_amount: data.loanAmount
+                  ? Number(data.loanAmount.replace(/[^0-9]/g, ""))
+                  : undefined,
+                memo:
+                  [data.source ? `유입경로: ${data.source}` : "", data.note]
+                    .filter(Boolean)
+                    .join("\n") || undefined,
+              });
+              await refetchTasks();
+              navigate(`/v4/wizard/consultation/${created.id}`);
+            } catch (e) {
+              console.warn("[TeamDashboard:createBankConsultation]", e);
+              window.alert("신규 고객 등록에 실패했습니다. 잠시 후 다시 시도해주세요.");
+            }
           }}
         />
       ) : null}

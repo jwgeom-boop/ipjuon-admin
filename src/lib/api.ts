@@ -120,6 +120,22 @@ export const api = {
     if (!res.ok) throw new Error('조회 실패')
     return res.json()
   },
+  createBankConsultation: async (data: {
+    resident_name: string
+    resident_phone: string
+    complex_name?: string
+    dong?: string
+    ho?: string
+    apt_type?: string
+    loan_amount?: number
+    memo?: string
+  }) => {
+    const res = await fetch(`${API_BASE_URL}/bank/consultations`, {
+      method: 'POST', headers: getHeaders(), body: JSON.stringify(data),
+    })
+    if (!res.ok) throw new Error('신규 등록 실패')
+    return res.json()
+  },
   updateBankConsultation: async (id: string, data: object) => {
     const res = await fetch(`${API_BASE_URL}/bank/consultations/${id}`, {
       method: 'PUT', headers: getHeaders(), body: JSON.stringify(data),

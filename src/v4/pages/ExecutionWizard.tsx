@@ -9,6 +9,8 @@ import { useWizardDraft } from "../wizard/useWizardDraft";
 import { PipelineStrip } from "../wizard/PipelineStrip";
 import { UserMenu } from "../auth/UserMenu";
 import { api } from "@/lib/api";
+import { executionToBackend } from "../data/wizardPersistence";
+import { useWizardAutosave } from "../data/useWizardAutosave";
 
 function fmt(n: number) {
   return n.toLocaleString("ko-KR");
@@ -68,6 +70,8 @@ export default function ExecutionWizard({ idProp, embedded, embedTask, onComplet
   const patch = <K extends keyof ExecutionData>(k: K, v: ExecutionData[K]) =>
     setData((d) => ({ ...d, [k]: v }));
 
+  const { isPersistableId } = useWizardAutosave(id, data, executionToBackend);
+
   const middleTotal = (data.middlePrincipal ?? 0) + (data.middleInterest ?? 0);
   const balanceTotal = (data.balancePrincipal ?? 0) + (data.balanceInterest ?? 0);
   const othersTotal =
@@ -87,6 +91,13 @@ export default function ExecutionWizard({ idProp, embedded, embedTask, onComplet
 
   const complete = async () => {
     if (id) {
+      if (isPersistableId) {
+        try {
+          await api.updateBankConsultation(id, executionToBackend(data, { markCompleted: true }));
+        } catch (e) {
+          console.warn("[updateBankConsultation]", e);
+        }
+      }
       try { await api.updateBankStatus(id, "done"); } catch (e) { console.warn("[updateBankStatus]", e); }
     }
     toast.success("실행 완료 처리됨", { description: `${data.customerName} 고객` });

@@ -25,6 +25,7 @@ import { PipelineStrip } from "../wizard/PipelineStrip";
 import { UserMenu } from "../auth/UserMenu";
 import { api } from "@/lib/api";
 import { consultationToBackend } from "../data/wizardPersistence";
+import { useWizardAutosave } from "../data/useWizardAutosave";
 
 // 상담 위저드의 nextStep 선택 → 백엔드 loan_status 매핑.
 // 자서예약 → signing_reservation, 가심사 → reviewing, 그 외 → consulting (인박스 잔류).
@@ -240,17 +241,9 @@ export default function ConsultationWizard({
       : status.tone === "warning"
       ? "var(--v4-warning)"
       : "var(--v4-success)";
-  // 백엔드 영속화: 4초 디바운스 자동 저장 (네트워크 부담 최소화)
+  // 백엔드 영속화: 4초 디바운스 자동 저장 + 연속 실패 시 토스트 안내.
   // 신규 등록 직후의 임시 id (예: "new-...") 는 백엔드에 없으므로 스킵.
-  const isPersistableId = !!id && !id.startsWith("new-");
-  useEffect(() => {
-    if (!isPersistableId) return;
-    const t = setTimeout(() => {
-      api.updateBankConsultation(id!, consultationToBackend(data))
-        .catch((e) => console.warn("[wizard autosave]", e));
-    }, 4000);
-    return () => clearTimeout(t);
-  }, [data, id, isPersistableId]);
+  const { isPersistableId } = useWizardAutosave(id, data, consultationToBackend);
 
   const complete = async () => {
     if (data.nextStep === "미정") {

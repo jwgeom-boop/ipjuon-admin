@@ -16,6 +16,8 @@ import { PipelineStrip } from "../wizard/PipelineStrip";
 import { saveReservationHandoff } from "../wizard/reservationHandoff";
 import { UserMenu } from "../auth/UserMenu";
 import { api } from "@/lib/api";
+import { reservationToBackend } from "../data/wizardPersistence";
+import { useWizardAutosave } from "../data/useWizardAutosave";
 
 const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -148,6 +150,8 @@ export default function ReservationWizard({
 
   const patch = <K extends keyof ReservationData>(k: K, v: ReservationData[K]) =>
     setData((d) => ({ ...d, [k]: v }));
+
+  const { isPersistableId } = useWizardAutosave(id, data, reservationToBackend);
 
   const allSignings = useMemo(() => getAllSigningFixtures(), []);
 
@@ -310,6 +314,10 @@ export default function ReservationWizard({
       remark: data.remark,
     });
     if (id) {
+      if (isPersistableId) {
+        try { await api.updateBankConsultation(id, reservationToBackend(data)); }
+        catch (e) { console.warn("[updateBankConsultation]", e); }
+      }
       try { await api.updateBankStatus(id, "signing"); } catch (e) { console.warn("[updateBankStatus]", e); }
     }
     toast.success("자서예약 확정", {

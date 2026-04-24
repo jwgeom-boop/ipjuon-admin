@@ -15,6 +15,8 @@ import { PipelineStrip } from "../wizard/PipelineStrip";
 import { getReservationHandoff } from "../wizard/reservationHandoff";
 import { UserMenu } from "../auth/UserMenu";
 import { api } from "@/lib/api";
+import { signingToBackend } from "../data/wizardPersistence";
+import { useWizardAutosave } from "../data/useWizardAutosave";
 
 function fmt(n: number) {
   return n.toLocaleString("ko-KR");
@@ -75,6 +77,8 @@ export default function SigningWizard({
   const patch = <K extends keyof SigningData>(k: K, v: SigningData[K]) =>
     setData((d) => ({ ...d, [k]: v }));
 
+  const { isPersistableId } = useWizardAutosave(id, data, signingToBackend);
+
   const updateDoc = (idx: number, fields: Partial<DocumentItem>) =>
     setData((d) => ({
       ...d,
@@ -128,6 +132,10 @@ export default function SigningWizard({
       if (!ok) return;
     }
     if (id) {
+      if (isPersistableId) {
+        try { await api.updateBankConsultation(id, signingToBackend(data)); }
+        catch (e) { console.warn("[updateBankConsultation]", e); }
+      }
       try { await api.updateBankStatus(id, "executing"); } catch (e) { console.warn("[updateBankStatus]", e); }
     }
     toast.success("자서 처리됨", { description: `${data.customerName} 고객` });

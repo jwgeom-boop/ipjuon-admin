@@ -24,6 +24,7 @@ import { useWizardDraft } from "../wizard/useWizardDraft";
 import { PipelineStrip } from "../wizard/PipelineStrip";
 import { UserMenu } from "../auth/UserMenu";
 import { api } from "@/lib/api";
+import { consultationToBackend } from "../data/wizardPersistence";
 
 // 상담 위저드의 nextStep 선택 → 백엔드 loan_status 매핑.
 // 자서예약 → signing_reservation, 가심사 → reviewing, 그 외 → consulting (인박스 잔류).
@@ -239,12 +240,29 @@ export default function ConsultationWizard({
       : status.tone === "warning"
       ? "var(--v4-warning)"
       : "var(--v4-success)";
+  // 백엔드 영속화: 4초 디바운스 자동 저장 (네트워크 부담 최소화)
+  // 신규 등록 직후의 임시 id (예: "new-...") 는 백엔드에 없으므로 스킵.
+  const isPersistableId = !!id && !id.startsWith("new-");
+  useEffect(() => {
+    if (!isPersistableId) return;
+    const t = setTimeout(() => {
+      api.updateBankConsultation(id!, consultationToBackend(data))
+        .catch((e) => console.warn("[wizard autosave]", e));
+    }, 4000);
+    return () => clearTimeout(t);
+  }, [data, id, isPersistableId]);
+
   const complete = async () => {
     if (data.nextStep === "미정") {
       const ok = window.confirm("다음 단계가 선택되지 않았습니다. 그래도 종료할까요?");
       if (!ok) return;
     }
     const nextStatus = NEXT_STEP_TO_STATUS[data.nextStep] ?? "consulting";
+    if (isPersistableId) {
+      // 단계 전환 직전에 입력값 풀 저장 (자동저장 디바운스 미발동분 포함)
+      try { await api.updateBankConsultation(id!, consultationToBackend(data)); }
+      catch (e) { console.warn("[updateBankConsultation]", e); }
+    }
     if (id) {
       try { await api.updateBankStatus(id, nextStatus); } catch (e) { console.warn("[updateBankStatus]", e); }
     }

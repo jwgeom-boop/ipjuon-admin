@@ -16,6 +16,7 @@ import { UserMenu } from "../auth/UserMenu";
 import { AppShell } from "../layout/AppShell";
 import { InboxRow } from "../inbox/InboxRow";
 import { InboxDetail } from "../inbox/InboxDetail";
+import { CompletedDetail } from "../inbox/CompletedDetail";
 import { InboxEmpty } from "../inbox/InboxEmpty";
 import ConsultationWizard from "./ConsultationWizard";
 import ReservationWizard from "./ReservationWizard";
@@ -919,6 +920,16 @@ export default function HomeInbox() {
                   setSelected(null);
                   refetchTasks();
                 };
+                if (done.has(selectedTask.id)) {
+                  return (
+                    <CompletedDetail
+                      key={selectedTask.id}
+                      task={selectedTask}
+                      onUndoComplete={() => toggleDone(selectedTask.id)}
+                      onCall={() => callTask(selectedTask)}
+                    />
+                  );
+                }
                 const stage = effectiveStage(selectedTask);
                 if (stage === "inbox") {
                   return (

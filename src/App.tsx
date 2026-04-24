@@ -11,8 +11,6 @@ import ConsultationDashboard from "./pages/ConsultationDashboard";
 import VendorManagement from "./pages/VendorManagement";
 import Notices from "./pages/Notices";
 import BankDashboard from "./pages/BankDashboard";
-import BankUrgentDashboard from "./pages/BankUrgentDashboard";
-import BankCalendar from "./pages/BankCalendar";
 import BankRequestDoc from "./pages/BankRequestDoc";
 import BankSettlement from "./pages/BankSettlement";
 import InviteLogs from "./pages/InviteLogs";
@@ -39,8 +37,6 @@ const App = () => (
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/bank" element={<BankDashboard />} />
-            <Route path="/bank/urgent" element={<BankUrgentDashboard />} />
-            <Route path="/bank/calendar" element={<BankCalendar />} />
             <Route path="/bank/request/:kind" element={<BankRequestDoc />} />
             <Route path="/bank/settlement/:id" element={<BankSettlement />} />
             <Route element={<V4Layout />}>

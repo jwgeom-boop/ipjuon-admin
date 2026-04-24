@@ -14,7 +14,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, LogOut, RefreshCw, Download, KeyRound, Search, FileText, CalendarDays, Printer, Inbox, MessageSquare, ClipboardCheck, Mail, CheckCircle2, XCircle, Phone, ArrowRight, AlertTriangle } from "lucide-react";
+import { CalendarIcon, LogOut, RefreshCw, Download, KeyRound, Search, FileText, CalendarDays, Printer, Inbox, MessageSquare, ClipboardCheck, Mail, CheckCircle2, XCircle, Phone, ArrowRight } from "lucide-react";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { ko } from "date-fns/locale";
 import { toast } from "sonner";
@@ -530,12 +530,6 @@ export default function BankDashboard() {
           {effectiveMode === "moveIn" && (
             <Badge className="bg-rose-100 text-rose-700 border-rose-200">입주기간 모드</Badge>
           )}
-          <Button variant="outline" size="sm" onClick={() => navigate("/bank/calendar")}>
-            <CalendarDays className="h-4 w-4 mr-1" /> 캘린더
-          </Button>
-          <Button variant="outline" size="sm" className="border-red-300 text-red-700 hover:bg-red-50" onClick={() => navigate("/bank/urgent")}>
-            <AlertTriangle className="h-4 w-4 mr-1" /> 긴급 대시보드
-          </Button>
           <Button variant="outline" size="sm" onClick={() => setPwOpen(true)}>
             <KeyRound className="h-4 w-4 mr-1" /> 비밀번호 변경
           </Button>

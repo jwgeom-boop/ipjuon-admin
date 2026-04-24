@@ -47,8 +47,8 @@ const AdminLayout = () => {
       <aside
         className={`
           fixed md:static z-40 h-full md:h-auto
-          ${sidebarOpen ? "w-60 translate-x-0" : "w-0 -translate-x-full md:translate-x-0 md:w-0"}
-          md:${sidebarOpen ? "w-60" : "w-0"}
+          md:w-60 md:translate-x-0
+          ${sidebarOpen ? "w-60 translate-x-0" : "w-0 -translate-x-full"}
           transition-all duration-300 flex flex-col text-white shrink-0 overflow-hidden
         `}
         style={{ backgroundColor: "#1E3A5F" }}
@@ -78,7 +78,7 @@ const AdminLayout = () => {
       <div className="flex-1 flex flex-col min-w-0">
         <header className="h-14 md:h-16 border-b bg-white flex items-center justify-between px-3 md:px-6 shrink-0">
           <div className="flex items-center gap-2 md:gap-3">
-            <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(!sidebarOpen)}>
+            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSidebarOpen(!sidebarOpen)}>
               <Menu className="w-5 h-5" />
             </Button>
             <span className="font-semibold text-base md:text-lg">입주ON 관리자</span>

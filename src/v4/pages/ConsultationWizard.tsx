@@ -85,7 +85,8 @@ export default function ConsultationWizard({
   const { data, setData, savedAt, clearDraft } = useWizardDraft<ConsultationData>(
     "consultation",
     id ?? "",
-    (rawId) => getConsultationFixture(rawId, seed)
+    (rawId) => getConsultationFixture(rawId, seed),
+    seed as Partial<ConsultationData> | undefined
   );
 
   const patch = <K extends keyof ConsultationData>(k: K, v: ConsultationData[K]) =>

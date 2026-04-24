@@ -61,7 +61,8 @@ export default function ExecutionWizard({ idProp, embedded, embedTask, onComplet
   const { data, setData, savedAt, clearDraft } = useWizardDraft<ExecutionData>(
     "execution",
     id ?? "",
-    (rawId) => getExecutionFixture(rawId, seed)
+    (rawId) => getExecutionFixture(rawId, seed),
+    seed as Partial<ExecutionData> | undefined
   );
 
   const patch = <K extends keyof ExecutionData>(k: K, v: ExecutionData[K]) =>

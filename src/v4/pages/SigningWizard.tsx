@@ -68,7 +68,8 @@ export default function SigningWizard({
               : handoff.remark
             : base.remark,
       };
-    }
+    },
+    seed as Partial<SigningData> | undefined
   );
 
   const patch = <K extends keyof SigningData>(k: K, v: SigningData[K]) =>

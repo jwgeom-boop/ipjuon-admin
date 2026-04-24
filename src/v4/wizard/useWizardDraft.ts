@@ -22,14 +22,17 @@ function readDraft<T>(key: string): Partial<T> | null {
 export function useWizardDraft<T extends object>(
   kind: WizardKind,
   id: string,
-  makeInitial: (id: string) => T
+  makeInitial: (id: string) => T,
+  // serverOverride: 매번 base/draft 위에 덮어씌울 필드 (서버 데이터가 항상 우선해야 할 때)
+  serverOverride?: Partial<T>
 ) {
   const key = draftKey(kind, id);
 
   const [data, setData] = useState<T>(() => {
     const base = makeInitial(id);
     const draft = readDraft<T>(key);
-    return draft ? { ...base, ...draft } : base;
+    const merged = draft ? ({ ...base, ...draft } as T) : base;
+    return serverOverride ? ({ ...merged, ...serverOverride } as T) : merged;
   });
 
   const [savedAt, setSavedAt] = useState<Date | null>(() => {
@@ -41,7 +44,8 @@ export function useWizardDraft<T extends object>(
   useEffect(() => {
     const base = makeInitial(id);
     const draft = readDraft<T>(key);
-    setData(draft ? ({ ...base, ...draft } as T) : base);
+    const merged = draft ? ({ ...base, ...draft } as T) : base;
+    setData(serverOverride ? ({ ...merged, ...serverOverride } as T) : merged);
     setSavedAt(
       typeof window !== "undefined" && window.localStorage.getItem(key)
         ? new Date()

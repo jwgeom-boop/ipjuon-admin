@@ -143,6 +143,7 @@ export default function ReservationWizard({
     "reservation",
     id ?? "",
     (rawId) => getReservationFixture(rawId, seed),
+    seed as Partial<ReservationData> | undefined,
   );
 
   const patch = <K extends keyof ReservationData>(k: K, v: ReservationData[K]) =>

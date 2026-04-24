@@ -35,6 +35,7 @@ const LOAN_STATUS_TO_TAG: Record<string, string> = {
   signing_reservation: "자서예약",
   signing: "자서",
   executing: "실행",
+  done: "완료",          // 대출 실행 완료 (cancel은 의도적으로 제외)
 };
 
 const NEXT_ACTION: Record<string, string> = {
@@ -45,6 +46,7 @@ const NEXT_ACTION: Record<string, string> = {
   signing_reservation: "자서 예정",
   signing: "자서 후 서류 취합",
   executing: "실행 정산 확정",
+  done: "실행 완료",
 };
 
 function daysUntil(iso?: string | null): number | null {

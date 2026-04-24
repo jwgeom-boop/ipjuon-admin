@@ -1,5 +1,7 @@
 import { CSSProperties, ReactNode, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import type { NewCustomerData } from "../home/NewCustomerModal";
+import { useAuth } from "@/contexts/AuthContext";
 import { ArrowLeft, Check, Phone, MessageSquare, Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Kbd } from "../components/Kbd";
@@ -72,6 +74,31 @@ function taskToSeed(task?: import("../home/TaskRow").TaskItem) {
   };
 }
 
+// /v4/wizard/consultation/:id 로 신규고객 등록 직후 진입 시,
+// HomeInbox 가 navigate state 로 폼 데이터를 넘긴다 → 초기 데이터에 덮어쓰기.
+function newCustomerToOverride(
+  nc?: NewCustomerData,
+  receivedByName?: string | null,
+): Partial<ConsultationData> | undefined {
+  if (!nc) return undefined;
+  const desired = Number((nc.loanAmount ?? "").replace(/[^\d]/g, ""));
+  const noteParts = [nc.source ? `유입경로: ${nc.source}` : "", nc.note ?? ""].filter(Boolean);
+  return {
+    customerName: nc.customerName,
+    phone: nc.phone,
+    complex: nc.complex,
+    dong: nc.dong,
+    ho: nc.ho,
+    dongHo: nc.dong && nc.ho ? `${nc.dong}-${nc.ho}` : "",
+    unitType: nc.size ? `${nc.size}㎡` : "",
+    ...(Number.isFinite(desired) && desired > 0 ? { desiredLoanAmount: desired } : {}),
+    ...(noteParts.length > 0 ? { consultationMemo: noteParts.join("\n") } : {}),
+    intakeDate: todayStr(),
+    receivedBy: receivedByName ?? "",
+    attempts: [],
+  };
+}
+
 export default function ConsultationWizard({
   embed,
   embedId,
@@ -81,12 +108,31 @@ export default function ConsultationWizard({
   const params = useParams<{ id: string }>();
   const id = embedId ?? params.id;
   const navigate = useNavigate();
+  const location = useLocation();
+  const { displayName, loginId } = useAuth();
+  const consultantName = displayName ?? loginId ?? "";
   const seed = taskToSeed(embedTask);
+  // 신규고객 등록 직후엔 embedTask 가 없고 (route 모드로 진입) navigate state 로만 전달됨.
+  const newCustomerOverride = useMemo(
+    () =>
+      newCustomerToOverride(
+        (location.state as { newCustomer?: NewCustomerData } | null)?.newCustomer,
+        consultantName,
+      ),
+    // location.state 는 라우팅 시점에 한 번만 잡으면 충분
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
   const { data, setData, savedAt, clearDraft } = useWizardDraft<ConsultationData>(
     "consultation",
     id ?? "",
-    (rawId) => getConsultationFixture(rawId, seed),
-    seed as Partial<ConsultationData> | undefined
+    (rawId) => ({
+      ...getConsultationFixture(rawId, seed),
+      ...(newCustomerOverride ?? {}),
+    }),
+    // serverOverride 는 server-of-truth 필드 강제용. 신규 입력값은 사용자가 편집 가능해야 하므로
+    // makeInitial 에서만 1회 적용하고 여기엔 넘기지 않는다.
+    seed as Partial<ConsultationData> | undefined,
   );
 
   const patch = <K extends keyof ConsultationData>(k: K, v: ConsultationData[K]) =>

@@ -39,6 +39,7 @@ import {
   getComplexFromAddress,
 } from "../data/samples";
 import { useMyConsultations } from "../data/useConsultations";
+import { api } from "@/lib/api";
 import type { TaskItem } from "../home/TaskRow";
 import type { UrgencyLevel } from "@/lib/urgency";
 
@@ -333,7 +334,8 @@ export default function HomeInbox() {
         case "execution":
           return filteredBase.filter((t) => effectiveStage(t) === "execution");
         case "done":
-          return filteredBase.filter((t) => done.has(t.id));
+          // 대출 실행 완료 (backend loan_status=done) — localStorage 체크박스 아님
+          return filteredBase.filter((t) => t.tag === "완료");
         default:
           return filteredBase;
       }
@@ -349,9 +351,9 @@ export default function HomeInbox() {
       reservation: filteredBase.filter((t) => effectiveStage(t) === "reservation").length,
       signing: filteredBase.filter((t) => effectiveStage(t) === "signing").length,
       execution: filteredBase.filter((t) => effectiveStage(t) === "execution").length,
-      done: filteredBase.filter((t) => done.has(t.id)).length,
+      done: filteredBase.filter((t) => t.tag === "완료").length,
     } as Record<CategoryKey, number>;
-  }, [filteredBase, done]);
+  }, [filteredBase]);
 
   const selectedTask = useMemo(
     () => (selectedId ? ALL_SORTED.find((t) => t.id === selectedId) : undefined),
@@ -932,7 +934,20 @@ export default function HomeInbox() {
                   setSelected(null);
                   refetchTasks();
                 };
-                if (done.has(selectedTask.id)) {
+                // 대출 실행 완료 (backend done) → 읽기 전용 완료 패널
+                if (selectedTask.tag === "완료") {
+                  const reopen = async () => {
+                    const ok = window.confirm(
+                      `${selectedTask.customerName} 건을 실행 단계로 되돌립니다.\n계속할까요?`
+                    );
+                    if (!ok) return;
+                    try {
+                      await api.updateBankStatus(selectedTask.id, "executing");
+                      refetchTasks();
+                    } catch (e) {
+                      console.warn("[reopen]", e);
+                    }
+                  };
                   return (
                     <CompletedDetail
                       key={selectedTask.id}
@@ -940,7 +955,7 @@ export default function HomeInbox() {
                       task={selectedTask}
                       completedAt={done.get(selectedTask.id)}
                       completedBy={effectiveAssignee ?? undefined}
-                      onUndoComplete={() => toggleDone(selectedTask.id)}
+                      onUndoComplete={reopen}
                       onCall={() => callTask(selectedTask)}
                       onSms={() => smsTask(selectedTask)}
                     />
@@ -1062,8 +1077,7 @@ export default function HomeInbox() {
           onSubmit={(data: NewCustomerData) => {
             setNewCustomerOpen(false);
             const id = `new-${Date.now()}`;
-            console.log("[NewCustomer]", id, data);
-            navigate(`/v4/wizard/consultation/${id}`);
+            navigate(`/v4/wizard/consultation/${id}`, { state: { newCustomer: data } });
           }}
         />
       ) : null}

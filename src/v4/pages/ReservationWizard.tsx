@@ -267,12 +267,24 @@ export default function ReservationWizard({
   };
 
   const copyDraftToClipboard = async () => {
+    let copied = false;
     try {
       await navigator.clipboard.writeText(smsDraft);
       setCopyState("copied");
       setTimeout(() => setCopyState("idle"), 1800);
+      copied = true;
     } catch {
       window.prompt("복사 실패 — 아래 텍스트를 직접 선택해 복사해 주세요:", smsDraft);
+    }
+    // 복사 성공 시 백엔드에 발송 시각 기록 (팀장 대시보드에서 SMS 누락 추적)
+    if (copied && id && isPersistableId) {
+      try {
+        await api.updateBankConsultation(id, {
+          last_sms_sent_at: new Date().toISOString(),
+        });
+      } catch (e) {
+        console.warn("[updateBankConsultation:last_sms_sent_at]", e);
+      }
     }
   };
 

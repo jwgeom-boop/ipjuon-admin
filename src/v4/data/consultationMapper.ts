@@ -25,6 +25,7 @@ export interface ConsultationDto {
   product?: string | null;
   memo?: string | null;
   stage_changed_at?: string | null; // ISO
+  last_sms_sent_at?: string | null; // ISO — 자서예약 안내문 마지막 발송(복사) 시각
 }
 
 const LOAN_STATUS_TO_TAG: Record<string, string> = {
@@ -92,7 +93,11 @@ export function mapConsultationToTask(c: ConsultationDto): TaskItem | null {
     .join(" ");
   const addressLabel = [dongHo, c.complex_name].filter(Boolean).join(" · ");
 
-  const nextAction = NEXT_ACTION[c.loan_status ?? ""] ?? "확인 필요";
+  let nextAction = NEXT_ACTION[c.loan_status ?? ""] ?? "확인 필요";
+  // 자서예약: SMS 안내문 미발송이면 후행으로 경고 추가 (팀장이 한눈에 파악)
+  if (c.loan_status === "signing_reservation" && !c.last_sms_sent_at) {
+    nextAction = `${nextAction} · SMS 미발송`;
+  }
 
   return {
     id: c.id,

@@ -9,12 +9,10 @@ import {
   TableHead, TableCell,
 } from "@/components/ui/table";
 import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
-  CartesianGrid, Tooltip as ReTooltip, Cell,
-} from "recharts";
-import {
   ClipboardList, Clock, CheckCircle, Wallet,
   ChevronDown, ChevronUp, ArrowRight,
+  Sofa, Truck, Wifi, Sparkles, Armchair, Tv,
+  type LucideIcon,
 } from "lucide-react";
 
 type ConsultationRow = {
@@ -49,15 +47,22 @@ const VENDOR_TYPE_MAP: Record<string, string> = {
 const normalizeVendorType = (type: string) => VENDOR_TYPE_MAP[type] ?? type;
 const isBankType = (type: string) => type === "bank" || type === "은행";
 
-const VENDOR_COLORS: Record<string, string> = {
-  인테리어: "hsl(28, 80%, 50%)",
-  이사: "hsl(270, 50%, 55%)",
-  "인터넷·TV": "hsl(190, 65%, 45%)",
-  청소: "hsl(150, 50%, 45%)",
-  가구: "hsl(340, 60%, 55%)",
-  가전: "hsl(45, 75%, 50%)",
+const VENDOR_META: Record<string, { color: string; icon: LucideIcon }> = {
+  인테리어: { color: "hsl(28, 80%, 50%)", icon: Sofa },
+  이사: { color: "hsl(270, 50%, 55%)", icon: Truck },
+  "인터넷·TV": { color: "hsl(190, 65%, 45%)", icon: Wifi },
+  청소: { color: "hsl(150, 50%, 45%)", icon: Sparkles },
+  가구: { color: "hsl(340, 60%, 55%)", icon: Armchair },
+  가전: { color: "hsl(45, 75%, 50%)", icon: Tv },
 };
-const COLOR_FALLBACK = "hsl(220, 10%, 55%)";
+const VENDOR_FALLBACK = { color: "hsl(220, 10%, 55%)", icon: ClipboardList };
+const todayKey = (() => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+})();
+const isToday = (iso: string) => iso.startsWith(todayKey);
+const isWaiting = (status: string) => status === "대기중" || status === "처리중";
+const isDone = (status: string) => status === "처리완료" || status === "완료";
 
 const formatAmountKRW = (won: number): string => {
   if (won >= 100_000_000) return `${(won / 100_000_000).toFixed(1)}억`;
@@ -100,20 +105,33 @@ const Dashboard = () => {
   }, [bankSummary]);
 
   /* ────────── 기타 업체 섹션 ────────── */
-  const { otherBreakdown, otherRecent, otherTotal } = useMemo(() => {
+  type OtherStat = {
+    name: string;
+    total: number;
+    waiting: number;
+    done: number;
+    today: number;
+    color: string;
+    icon: LucideIcon;
+  };
+  const { otherStats, otherRecent, otherTotal } = useMemo(() => {
     const others = consultations.filter((r) => !isBankType(r.vendor_type));
-    const map = new Map<string, number>();
+    const map = new Map<string, OtherStat>();
     for (const r of others) {
       const name = normalizeVendorType(r.vendor_type);
-      map.set(name, (map.get(name) ?? 0) + 1);
+      const meta = VENDOR_META[name] ?? VENDOR_FALLBACK;
+      const cur = map.get(name) ?? { name, total: 0, waiting: 0, done: 0, today: 0, color: meta.color, icon: meta.icon };
+      cur.total += 1;
+      if (isWaiting(r.status)) cur.waiting += 1;
+      if (isDone(r.status)) cur.done += 1;
+      if (isToday(r.created_at)) cur.today += 1;
+      map.set(name, cur);
     }
-    const breakdown = Array.from(map.entries())
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count);
+    const stats = Array.from(map.values()).sort((a, b) => b.total - a.total);
     const recent = [...others]
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, 5);
-    return { otherBreakdown: breakdown, otherRecent: recent, otherTotal: others.length };
+    return { otherStats: stats, otherRecent: recent, otherTotal: others.length };
   }, [consultations]);
 
   /* ────────── 통합 KPI 카드 ────────── */
@@ -222,55 +240,71 @@ const Dashboard = () => {
         )}
       </section>
 
-      {/* ───── 보조: 기타 업체 섹션 (접힘) ───── */}
-      <section className="space-y-3">
+      {/* ───── 보조: 기타 업체 섹션 ───── */}
+      <section className="space-y-3 md:space-y-4">
         <button
           type="button"
           onClick={() => setOtherOpen((v) => !v)}
           className="w-full flex items-center justify-between px-1 py-2 hover:bg-muted/50 rounded transition-colors"
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-base md:text-lg font-semibold">기타 업체 현황</h2>
-            <Badge variant="secondary" className="text-xs">{otherTotal}건</Badge>
-            <span className="text-xs text-muted-foreground">인테리어·이사·인터넷·청소·가구·가전</span>
+            <Badge variant="secondary" className="text-xs">총 {otherTotal}건</Badge>
+            <span className="text-xs text-muted-foreground hidden sm:inline">인테리어·이사·인터넷·청소·가구·가전</span>
           </div>
           {otherOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
         </button>
 
         {otherOpen && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-5">
-            <Card className="shadow-sm">
-              <CardHeader className="p-3 md:p-6 pb-1 md:pb-2">
-                <CardTitle className="text-sm md:text-base">카테고리별 신청</CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 md:p-6 pt-0">
-                {otherBreakdown.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-6 text-sm">데이터가 없습니다.</p>
-                ) : (
-                  <div className="h-48">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={otherBreakdown}
-                        layout="vertical"
-                        margin={{ top: 4, right: 16, left: 0, bottom: 0 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 14%, 92%)" horizontal={false} />
-                        <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
-                        <YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={64} />
-                        <ReTooltip formatter={(value: number) => [`${value}건`, "신청"]} />
-                        <Bar dataKey="count" radius={[0, 4, 4, 0]}>
-                          {otherBreakdown.map((entry) => (
-                            <Cell key={entry.name} fill={VENDOR_COLORS[entry.name] ?? COLOR_FALLBACK} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+          <>
+            {/* 카테고리 카드 그리드 */}
+            {otherStats.length === 0 ? (
+              <Card className="shadow-sm">
+                <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                  기타 업체 신청 데이터가 없습니다.
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                {otherStats.map((s) => {
+                  const Icon = s.icon;
+                  const doneRate = s.total > 0 ? Math.round((s.done / s.total) * 100) : 0;
+                  return (
+                    <Card
+                      key={s.name}
+                      className="shadow-sm hover:shadow-md transition-shadow cursor-pointer group"
+                      onClick={() => navigate(`/consultation?type=${encodeURIComponent(s.name)}`)}
+                    >
+                      <CardContent className="p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: s.color }}>
+                            <Icon className="w-4 h-4 text-white" />
+                          </div>
+                          <ArrowRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">{s.name}</p>
+                          <p className="text-2xl font-bold leading-tight">{s.total}<span className="text-xs font-normal text-muted-foreground ml-1">건</span></p>
+                        </div>
+                        <div className="flex items-baseline justify-between text-[11px] text-muted-foreground border-t pt-1.5">
+                          <span>대기 <span className="text-foreground font-semibold">{s.waiting}</span></span>
+                          <span>완료 <span className="text-foreground font-semibold">{s.done}</span></span>
+                        </div>
+                        <div className="h-1 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full transition-all" style={{ width: `${doneRate}%`, backgroundColor: s.color }} />
+                        </div>
+                        {s.today > 0 && (
+                          <div className="text-[10px] text-blue-600 font-medium">오늘 +{s.today}</div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
 
-            <Card className="shadow-sm lg:col-span-2">
+            {/* 최근 기타 신청 */}
+            <Card className="shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between p-3 md:p-6">
                 <CardTitle className="text-sm md:text-base">최근 기타 신청</CardTitle>
                 <Button variant="outline" size="sm" onClick={() => navigate("/consultation")} className="text-xs">
@@ -319,7 +353,7 @@ const Dashboard = () => {
                 )}
               </CardContent>
             </Card>
-          </div>
+          </>
         )}
       </section>
     </div>

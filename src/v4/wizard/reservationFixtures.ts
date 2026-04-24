@@ -1,5 +1,5 @@
 import { getAllSigningFixtures } from "./signingFixtures";
-import { getConsultationFixture } from "./consultationFixtures";
+import { getConsultationFixture, type FixtureSeed } from "./consultationFixtures";
 
 export type LocationKind = "bank" | "custom";
 
@@ -88,8 +88,28 @@ const RESERVATION_FIXTURES: Record<string, ReservationData> = {
   },
 };
 
-export function getReservationFixture(id: string): ReservationData {
+export function getReservationFixture(id: string, seed?: FixtureSeed): ReservationData {
   if (RESERVATION_FIXTURES[id]) return RESERVATION_FIXTURES[id];
+
+  // seed (인박스 행 데이터)가 있으면 우선 적용
+  if (seed) {
+    return {
+      id,
+      customerName: seed.customerName ?? "",
+      dongHo: seed.dongHo ?? "",
+      complex: seed.complex ?? "",
+      phone: seed.phone ?? "",
+      dDay: "",
+      signingDate: "",
+      signingTime: "",
+      location: { kind: "bank" },
+      bankBranchLabel: "",
+      spouseAccompany: false,
+      companionNote: "",
+      documents: DEFAULT_DOCS(),
+      remark: "",
+    };
+  }
 
   // signing fixture에 같은 id가 있으면 prefill (재예약·일정 변경 케이스)
   const signing = getAllSigningFixtures().find((s) => s.id === id);

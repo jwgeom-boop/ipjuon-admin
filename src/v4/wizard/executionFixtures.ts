@@ -1,3 +1,5 @@
+import type { FixtureSeed } from "./consultationFixtures";
+
 export interface ExecutionData {
   id: string;
   customerName: string;
@@ -218,6 +220,15 @@ const EXECUTION_FIXTURES: Record<string, ExecutionData> = {
   },
 };
 
-export function getExecutionFixture(id: string): ExecutionData {
-  return EXECUTION_FIXTURES[id] ?? EXECUTION_FIXTURES["cho-eunhee"];
+export function getExecutionFixture(id: string, seed?: FixtureSeed): ExecutionData {
+  const base = EXECUTION_FIXTURES[id] ?? EXECUTION_FIXTURES["cho-eunhee"];
+  if (!seed) return { ...base, id };
+  return {
+    ...base,
+    id,
+    customerName: seed.customerName ?? base.customerName,
+    dongHo: seed.dongHo ?? base.dongHo,
+    complex: seed.complex ?? base.complex,
+    phone: seed.phone ?? base.phone,
+  };
 }

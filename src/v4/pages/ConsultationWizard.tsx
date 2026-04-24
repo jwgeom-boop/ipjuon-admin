@@ -57,21 +57,35 @@ function nowTime() {
 type ConsultationWizardProps = {
   embed?: boolean;
   embedId?: string;
+  embedTask?: import("../home/TaskRow").TaskItem;
   onEmbedComplete?: () => void;
 };
+
+function taskToSeed(task?: import("../home/TaskRow").TaskItem) {
+  if (!task) return undefined;
+  const [dongHo, complex] = (task.addressLabel ?? "").split(" · ");
+  return {
+    customerName: task.customerName,
+    dongHo: (dongHo ?? "").replace(/동\s*/, "-").replace(/호\s*$/, "").trim(),
+    complex,
+    phone: task.phone,
+  };
+}
 
 export default function ConsultationWizard({
   embed,
   embedId,
+  embedTask,
   onEmbedComplete,
 }: ConsultationWizardProps = {}) {
   const params = useParams<{ id: string }>();
   const id = embedId ?? params.id;
   const navigate = useNavigate();
+  const seed = taskToSeed(embedTask);
   const { data, setData, savedAt, clearDraft } = useWizardDraft<ConsultationData>(
     "consultation",
     id ?? "",
-    (rawId) => getConsultationFixture(rawId)
+    (rawId) => getConsultationFixture(rawId, seed)
   );
 
   const patch = <K extends keyof ConsultationData>(k: K, v: ConsultationData[K]) =>

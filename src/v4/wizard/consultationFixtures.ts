@@ -345,6 +345,25 @@ const CONSULTATION_FIXTURES: Record<string, ConsultationData> = {
   },
 };
 
-export function getConsultationFixture(id: string): ConsultationData {
-  return CONSULTATION_FIXTURES[id] ?? CONSULTATION_FIXTURES["new-choi-seyoung"];
+export interface FixtureSeed {
+  customerName?: string;
+  dongHo?: string;
+  complex?: string;
+  phone?: string;
+}
+
+export function getConsultationFixture(id: string, seed?: FixtureSeed): ConsultationData {
+  const base = CONSULTATION_FIXTURES[id] ?? CONSULTATION_FIXTURES["new-choi-seyoung"];
+  if (!seed) return { ...base, id };
+  const [seedDong = "", seedHo = ""] = (seed.dongHo ?? "").split("-");
+  return {
+    ...base,
+    id,
+    customerName: seed.customerName ?? base.customerName,
+    dongHo: seed.dongHo ?? base.dongHo,
+    complex: seed.complex ?? base.complex,
+    phone: seed.phone ?? base.phone,
+    dong: seedDong || base.dong,
+    ho: seedHo || base.ho,
+  };
 }

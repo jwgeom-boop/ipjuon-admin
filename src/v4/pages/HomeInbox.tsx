@@ -926,6 +926,7 @@ export default function HomeInbox() {
                       key={selectedTask.id}
                       embed
                       embedId={selectedTask.id}
+                      embedTask={selectedTask}
                       onEmbedComplete={onEmbedComplete}
                     />
                   );
@@ -936,6 +937,7 @@ export default function HomeInbox() {
                       key={selectedTask.id}
                       embed
                       embedId={selectedTask.id}
+                      embedTask={selectedTask}
                       onEmbedComplete={onEmbedComplete}
                     />
                   );
@@ -946,6 +948,7 @@ export default function HomeInbox() {
                       key={selectedTask.id}
                       embed
                       embedId={selectedTask.id}
+                      embedTask={selectedTask}
                       onEmbedComplete={onEmbedComplete}
                     />
                   );
@@ -956,6 +959,7 @@ export default function HomeInbox() {
                       key={selectedTask.id}
                       embedded
                       idProp={selectedTask.id}
+                      embedTask={selectedTask}
                       onComplete={onEmbedComplete}
                     />
                   );

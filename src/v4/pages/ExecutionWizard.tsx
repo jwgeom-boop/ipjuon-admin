@@ -38,17 +38,30 @@ const ROWS: RowConfig[] = [
 interface ExecutionWizardProps {
   idProp?: string;
   embedded?: boolean;
+  embedTask?: import("../home/TaskRow").TaskItem;
   onComplete?: () => void;
 }
 
-export default function ExecutionWizard({ idProp, embedded, onComplete }: ExecutionWizardProps = {}) {
+function taskToSeed(task?: import("../home/TaskRow").TaskItem) {
+  if (!task) return undefined;
+  const [dongHo, complex] = (task.addressLabel ?? "").split(" · ");
+  return {
+    customerName: task.customerName,
+    dongHo: (dongHo ?? "").replace(/동\s*/, "-").replace(/호\s*$/, "").trim(),
+    complex,
+    phone: task.phone,
+  };
+}
+
+export default function ExecutionWizard({ idProp, embedded, embedTask, onComplete }: ExecutionWizardProps = {}) {
   const params = useParams<{ id: string }>();
   const id = idProp ?? params.id;
   const navigate = useNavigate();
+  const seed = taskToSeed(embedTask);
   const { data, setData, savedAt, clearDraft } = useWizardDraft<ExecutionData>(
     "execution",
     id ?? "",
-    (rawId) => getExecutionFixture(rawId)
+    (rawId) => getExecutionFixture(rawId, seed)
   );
 
   const patch = <K extends keyof ExecutionData>(k: K, v: ExecutionData[K]) =>

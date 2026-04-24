@@ -1,3 +1,5 @@
+import type { FixtureSeed } from "./consultationFixtures";
+
 export type DocStatus = "pending" | "received" | "missing";
 
 export interface DocumentItem {
@@ -145,8 +147,17 @@ const SIGNING_FIXTURES: Record<string, SigningData> = {
   },
 };
 
-export function getSigningFixture(id: string): SigningData {
-  return SIGNING_FIXTURES[id] ?? SIGNING_FIXTURES["kim-okhee"];
+export function getSigningFixture(id: string, seed?: FixtureSeed): SigningData {
+  const base = SIGNING_FIXTURES[id] ?? SIGNING_FIXTURES["kim-okhee"];
+  if (!seed) return { ...base, id };
+  return {
+    ...base,
+    id,
+    customerName: seed.customerName ?? base.customerName,
+    dongHo: seed.dongHo ?? base.dongHo,
+    complex: seed.complex ?? base.complex,
+    phone: seed.phone ?? base.phone,
+  };
 }
 
 export function getAllSigningFixtures(): SigningData[] {

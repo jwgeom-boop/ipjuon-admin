@@ -51,6 +51,7 @@ function taskToSeed(task?: import("../home/TaskRow").TaskItem) {
     customerName: task.customerName,
     dongHo: (dongHo ?? "").replace(/동\s*/, "-").replace(/호\s*$/, "").trim(),
     complex,
+    aptType: task.aptType ?? (task.size != null ? String(task.size) : undefined),
     phone: task.phone,
   };
 }
@@ -140,15 +141,20 @@ export default function ExecutionWizard({ idProp, embedded, embedTask, onComplet
   };
 
   // 단지 템플릿에서 자동 채움. 빈 필드만 덮어쓰고, 사용자가 이미 입력한 값은 보존.
+  // 평형은 data.aptType (신규 상담 등록 시 입력값) 우선 사용, 없으면 사용자에게 입력받음.
   const handleAutoFillFromComplex = async () => {
     if (!data.complex) {
       toast.error("단지 정보가 없습니다");
       return;
     }
-    const aptType = (window.prompt(
-      `[${data.complex}] 평형을 입력하세요 (예: 84A, 59B). 비우면 단지 공통 필드만 채웁니다.`,
-      ""
-    ) ?? "").trim();
+    let aptType = (data.aptType ?? "").trim();
+    if (!aptType) {
+      // fallback: 신규 상담 데이터에 평형 정보가 없는 legacy 케이스
+      aptType = (window.prompt(
+        `[${data.complex}] 평형을 입력하세요 (예: 84A, 59B). 비우면 단지 공통 필드만 채웁니다.`,
+        ""
+      ) ?? "").trim();
+    }
     try {
       const t = await api.resolveComplexTemplate(data.complex, aptType || undefined);
       if (!t) {

@@ -5,6 +5,7 @@ export interface ExecutionData {
   customerName: string;
   dongHo: string;
   complex: string;
+  aptType: string;       // 평형 코드 (예: "84A", "59B") — 단지 템플릿 매칭 키
   phone: string;
   dDay: string;
 
@@ -70,6 +71,7 @@ const EXECUTION_FIXTURES: Record<string, ExecutionData> = {
     customerName: "조은희",
     dongHo: "102-1001",
     complex: "봄여름가을겨울3차",
+    aptType: "84",
     phone: "010-2200-4771",
     dDay: "D-day",
     loanAmount: 260000000,
@@ -122,6 +124,7 @@ const EXECUTION_FIXTURES: Record<string, ExecutionData> = {
     customerName: "한오영",
     dongHo: "101-603",
     complex: "잠실 미성크로바",
+    aptType: "74A",
     phone: "010-4422-1502",
     dDay: "D-1",
     loanAmount: 280000000,
@@ -174,6 +177,7 @@ const EXECUTION_FIXTURES: Record<string, ExecutionData> = {
     customerName: "이복희",
     dongHo: "201-801",
     complex: "포항학산더휴",
+    aptType: "59",
     phone: "010-8581-5308",
     dDay: "D-2",
     loanAmount: 223000000,
@@ -231,6 +235,7 @@ export function getExecutionFixture(id: string, seed?: FixtureSeed): ExecutionDa
     customerName: seed.customerName ?? base.customerName,
     dongHo: seed.dongHo ?? base.dongHo,
     complex: seed.complex ?? base.complex,
+    aptType: seed.aptType ?? base.aptType,
     phone: seed.phone ?? base.phone,
   };
 }

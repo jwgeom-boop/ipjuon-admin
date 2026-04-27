@@ -349,6 +349,7 @@ export interface FixtureSeed {
   customerName?: string;
   dongHo?: string;
   complex?: string;
+  aptType?: string;     // 평형 코드 (단지 템플릿 매칭에 사용)
   phone?: string;
   desiredLoanAmount?: number;
   consultationMemo?: string;

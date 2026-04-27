@@ -40,6 +40,7 @@ export interface TaskItem {
   phones?: string[];
   note?: string;
   size?: number;
+  aptType?: string;          // 평형 코드 (예: "84A", "59B", "74A") — 단지 템플릿 매칭에 사용
   residentNo?: string;
   additionalLoan?: number;
   intermediatePrincipal?: number;

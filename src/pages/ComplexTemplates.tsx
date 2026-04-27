@@ -18,6 +18,7 @@ import { Plus, Pencil, Trash2, Copy } from "lucide-react";
 import { toast } from "sonner";
 
 type AptFee = { apt_type: string; mgmt_fee_amount: number | string; display_order?: number };
+type SettlementItem = { category: string; bank?: string; account?: string; note?: string; display_order?: number };
 
 interface Template {
   id?: string;
@@ -35,13 +36,13 @@ interface Template {
   // 납부방법
   payment_methods?: string;
   payment_notes?: string;
-  // 일반 분양/옵션
+  // 일반 분양/옵션 (deprecated - settlement_items 표로 흡수)
   general_balance_note?: string;
   general_balance_holder?: string;
   general_option_bank?: string;
   general_option_account?: string;
   general_option_holder?: string;
-  // 조합
+  // 조합 (deprecated)
   union_balance_note?: string;
   union_balance_holder?: string;
   union_option_bank?: string;
@@ -58,9 +59,28 @@ interface Template {
   updated_by_bank?: string;
   updated_at?: string;
   apt_fees?: AptFee[];
+  settlement_items?: SettlementItem[];
 }
 
-const EMPTY: Template = { complex_name: "", stamp_duty: 75000, apt_fees: [] };
+const DEFAULT_SETTLEMENT_CATEGORIES: SettlementItem[] = [
+  { category: "중도금", note: "원금" },
+  { category: "중도금이자", note: "실행일확인" },
+  { category: "분양잔금", note: "시행사 입금" },
+  { category: "발코니 확장", note: "별매품1" },
+  { category: "유상옵션", note: "별매품2" },
+  { category: "보증수수료", note: "HUG/HF 대납이자" },
+  { category: "선수관리비", note: "관리사무소" },
+  { category: "이주비", note: "" },
+  { category: "인지대", bank: "현금/수입인지", account: "—", note: "수입인지" },
+  { category: "인지대 (추가대출)", note: "" },
+];
+
+const EMPTY: Template = {
+  complex_name: "",
+  stamp_duty: 75000,
+  apt_fees: [],
+  settlement_items: DEFAULT_SETTLEMENT_CATEGORIES.map((s, i) => ({ ...s, display_order: i })),
+};
 
 export default function ComplexTemplates() {
   const [list, setList] = useState<Template[]>([]);
@@ -109,6 +129,15 @@ export default function ComplexTemplates() {
           .map((f, i) => ({
             apt_type: String(f.apt_type).trim(),
             mgmt_fee_amount: Number(f.mgmt_fee_amount),
+            display_order: i,
+          })),
+        settlement_items: (form.settlement_items ?? [])
+          .filter((s) => s.category && String(s.category).trim() !== "")
+          .map((s, i) => ({
+            category: String(s.category).trim(),
+            bank: s.bank?.trim() || null,
+            account: s.account?.trim() || null,
+            note: s.note?.trim() || null,
             display_order: i,
           })),
       };
@@ -290,6 +319,29 @@ function EditForm({
     onChange({ ...value, apt_fees: fees.filter((_, idx) => idx !== i) });
   };
 
+  // 정산 항목 표 — 1번 이미지의 [구분/은행/계좌/비고] 4컬럼
+  const settlements = useMemo(() => value.settlement_items ?? [], [value]);
+
+  const addSettlement = () => onChange({
+    ...value,
+    settlement_items: [...settlements, { category: "", bank: "", account: "", note: "" }],
+  });
+
+  const updateSettlement = (i: number, k: keyof SettlementItem, v: any) => {
+    const next = [...settlements];
+    next[i] = { ...next[i], [k]: v };
+    onChange({ ...value, settlement_items: next });
+  };
+
+  const removeSettlement = (i: number) => {
+    onChange({ ...value, settlement_items: settlements.filter((_, idx) => idx !== i) });
+  };
+
+  const resetSettlementsToDefault = () => onChange({
+    ...value,
+    settlement_items: DEFAULT_SETTLEMENT_CATEGORIES.map((s, i) => ({ ...s, display_order: i })),
+  });
+
   return (
     <div className="space-y-6 py-2">
       <Section title="단지 기본">
@@ -379,56 +431,84 @@ function EditForm({
         </Field>
       </Section>
 
-      <Section title="5. 일반 분양대금">
-        <Field label="계좌번호 안내">
-          <Textarea rows={2} value={value.general_balance_note ?? ""} onChange={set("general_balance_note")}
-            placeholder="예: 공급계약서 1조 ⓒ항 가상계좌번호 확인" />
-        </Field>
-        <Field label="예금주">
-          <Input value={value.general_balance_holder ?? ""} onChange={set("general_balance_holder")}
-            placeholder="예: 잠실 미성크로바아파트주택재건축정비사업조합 / 롯데건설㈜" />
-        </Field>
-      </Section>
-
-      <Section title="6. 일반 옵션대금">
-        <Two>
-          <Field label="은행">
-            <Input value={value.general_option_bank ?? ""} onChange={set("general_option_bank")} placeholder="예: 국민" />
-          </Field>
-          <Field label="계좌번호">
-            <Input value={value.general_option_account ?? ""} onChange={set("general_option_account")} placeholder="예: 465101-01-311967" />
-          </Field>
-        </Two>
-        <Field label="예금주">
-          <Input value={value.general_option_holder ?? ""} onChange={set("general_option_holder")} placeholder="예: 롯데건설㈜" />
-        </Field>
-      </Section>
-
-      <Section title="7. 조합 분양/옵션대금 (재건축 조합 있는 경우만)">
-        <Field label="조합 분양대금 안내">
-          <Textarea rows={2} value={value.union_balance_note ?? ""} onChange={set("union_balance_note")} />
-        </Field>
-        <Field label="조합 분양대금 예금주">
-          <Input value={value.union_balance_holder ?? ""} onChange={set("union_balance_holder")} />
-        </Field>
-        <Two>
-          <Field label="조합 옵션 은행">
-            <Input value={value.union_option_bank ?? ""} onChange={set("union_option_bank")} />
-          </Field>
-          <Field label="조합 옵션 계좌">
-            <Input value={value.union_option_account ?? ""} onChange={set("union_option_account")} placeholder="예: 086801-01-011822" />
-          </Field>
-        </Two>
-        <Field label="조합 옵션 예금주">
-          <Input value={value.union_option_holder ?? ""} onChange={set("union_option_holder")} />
-        </Field>
-      </Section>
-
-      <Section title="8. 중도금대출 상환">
-        <Field label="안내문">
-          <Textarea rows={2} value={value.middle_loan_note ?? ""} onChange={set("middle_loan_note")}
-            placeholder="예: 해당은행에서 상환금액 확인 후 직접상환 (중도금대출세대에 한함)" />
-        </Field>
+      {/* 5. 정산 항목별 계좌 표 — 입주안내문(1번 이미지) 형식
+            기존 5/6/7/8 (일반 분양/옵션, 조합, 중도금대출 상환) 섹션을 표로 통합 */}
+      <Section title="5. 정산 항목별 계좌 (입주 안내문)" right={
+        <div className="flex gap-1">
+          <Button size="sm" variant="ghost" onClick={resetSettlementsToDefault} type="button" className="text-xs gap-1">
+            기본 항목 복원
+          </Button>
+          <Button size="sm" variant="outline" onClick={addSettlement} type="button" className="gap-1">
+            <Plus className="w-3.5 h-3.5" /> 항목 추가
+          </Button>
+        </div>
+      }>
+        <p className="text-xs text-muted-foreground -mt-1 mb-2">
+          입주안내문에 표 형태로 노출되는 정산 항목별 계좌 정보입니다. 비어 있는 항목은 입주민 화면에서 회색 표시됩니다.
+        </p>
+        <div className="border rounded-lg overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/40">
+              <tr className="text-xs text-muted-foreground">
+                <th className="text-left font-medium px-3 py-2 w-32">구분</th>
+                <th className="text-left font-medium px-3 py-2 w-28">해당은행</th>
+                <th className="text-left font-medium px-3 py-2">계좌번호</th>
+                <th className="text-left font-medium px-3 py-2 w-32">비고</th>
+                <th className="w-10"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {settlements.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="text-center py-4 text-xs text-muted-foreground">
+                    정산 항목이 없습니다. [기본 항목 복원] 또는 [+ 항목 추가]를 눌러 시작하세요.
+                  </td>
+                </tr>
+              )}
+              {settlements.map((s, i) => (
+                <tr key={i} className="border-t">
+                  <td className="px-2 py-1.5">
+                    <Input
+                      value={s.category}
+                      onChange={(e) => updateSettlement(i, "category", e.target.value)}
+                      placeholder="중도금"
+                      className="h-8 text-xs"
+                    />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <Input
+                      value={s.bank ?? ""}
+                      onChange={(e) => updateSettlement(i, "bank", e.target.value)}
+                      placeholder="국민은행"
+                      className="h-8 text-xs"
+                    />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <Input
+                      value={s.account ?? ""}
+                      onChange={(e) => updateSettlement(i, "account", e.target.value)}
+                      placeholder="101437-04-002570"
+                      className="h-8 text-xs font-mono"
+                    />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <Input
+                      value={s.note ?? ""}
+                      onChange={(e) => updateSettlement(i, "note", e.target.value)}
+                      placeholder="원금"
+                      className="h-8 text-xs"
+                    />
+                  </td>
+                  <td className="px-1 py-1.5">
+                    <Button size="sm" variant="ghost" onClick={() => removeSettlement(i)} type="button" className="text-red-600 h-8 w-8 p-0">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Section>
 
       <Section title="9. 분양대금 조회 URL">

@@ -3,11 +3,15 @@ import type { TaskItem } from "../home/TaskRow";
 export const ALL_COMPLEXES = "전체 아파트";
 export const ADD_COMPLEX_SENTINEL = "+ 새 아파트 추가";
 export const COMPLEX = "봄여름가을겨울3차";
+// 백엔드 DataInitializer.initComplexTemplates() 의 6개 시드 단지와 1:1 매칭.
+// 이 목록 변경 시 백엔드 시드도 함께 수정 필요.
 export const DEFAULT_COMPLEXES = [
+  "잠실 미성크로바",
   COMPLEX,
   "포항학산더휴",
   "자이더테라스파크",
   "힐스테이트포레스타",
+  "창원 힐스테이트 마크로엔",
 ];
 
 export const STORAGE_KEY = "v4.selectedComplex";
@@ -71,7 +75,7 @@ export const SAMPLES: TaskItem[] = [
     id: "han-oyoung",
     urgency: "critical",
     customerName: "한오영",
-    addressLabel: `101-603 · ${COMPLEX}`,
+    addressLabel: `101-603 · 잠실 미성크로바`,
     nextAction: "대출실행 정산 확정 — 필요자금 127,413,216원 고객 납부 대기",
     tag: "실행",
     time: "D-1",
@@ -142,7 +146,7 @@ export const SAMPLES: TaskItem[] = [
     id: "lee-bokhee",
     urgency: "normal",
     customerName: "이복희",
-    addressLabel: `101-801 · ${COMPLEX}`,
+    addressLabel: `201-801 · 포항학산더휴`,
     nextAction: "대출 실행 — 정산 내역 확인 완료, 실행만 남음",
     tag: "실행",
     time: "11:00",

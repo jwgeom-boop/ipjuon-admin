@@ -407,6 +407,29 @@ export default function TeamDashboard() {
                 단지 안내글 편집
               </button>
             )}
+            {/* 단지 정보 관리 (관리비·정산항목 등 모든 은행 공유 데이터) */}
+            <button
+              type="button"
+              onClick={() => navigate("/v4/complex-templates")}
+              title="단지 정보 관리 (관리비·정산항목 — 모든 은행 공유)"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "7px 12px",
+                fontSize: 12,
+                fontWeight: 500,
+                color: "var(--v4-text-secondary)",
+                background: "var(--v4-bg-primary)",
+                border: "1px solid var(--v4-border-secondary)",
+                borderRadius: 6,
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              <Building2 size={13} strokeWidth={2} />
+              단지 정보
+            </button>
             <button
               type="button"
               onClick={() => setNewCustomerOpen(true)}

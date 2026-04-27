@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronDown, LogOut, UserCircle2, UserCog } from "lucide-react";
+import { Building2, ChevronDown, Home, LogOut, UserCircle2, UserCog } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { parseBankLoginId } from "./role";
 
@@ -210,24 +210,39 @@ export function UserMenu({ impersonatingAs }: Props = {}) {
             </span>
           </div>
           <div style={{ borderTop: "1px solid var(--v4-border-light)" }} />
+
+          {/* 입주민 앱 노출 콘텐츠 관리 — 어느 v4 화면에서든 접근 */}
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => { setOpen(false); navigate("/v4/bank-profile"); }}
+            style={menuItemStyle}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--v4-bg-tertiary)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+          >
+            <Building2 size={13} strokeWidth={1.8} />
+            은행 프로필 (글로벌)
+          </button>
+
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => { setOpen(false); navigate("/v4/bank-profile/complex"); }}
+            style={menuItemStyle}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--v4-bg-tertiary)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+          >
+            <Home size={13} strokeWidth={1.8} />
+            단지별 프로필 관리
+          </button>
+
+          <div style={{ borderTop: "1px solid var(--v4-border-light)" }} />
+
           <button
             type="button"
             role="menuitem"
             onClick={handleLogout}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              width: "100%",
-              padding: "10px 12px",
-              fontSize: 12,
-              color: "var(--v4-text-secondary)",
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
-              fontFamily: "inherit",
-              textAlign: "left",
-            }}
+            style={menuItemStyle}
             onMouseEnter={(e) =>
               (e.currentTarget.style.background = "var(--v4-bg-tertiary)")
             }
@@ -241,3 +256,18 @@ export function UserMenu({ impersonatingAs }: Props = {}) {
     </div>
   );
 }
+
+const menuItemStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  width: "100%",
+  padding: "10px 12px",
+  fontSize: 12,
+  color: "var(--v4-text-secondary)",
+  background: "transparent",
+  border: "none",
+  cursor: "pointer",
+  fontFamily: "inherit",
+  textAlign: "left",
+};

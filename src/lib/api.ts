@@ -247,4 +247,38 @@ export const api = {
     if (!res.ok) throw new Error('은행 프로필 수정 실패')
     return res.json()
   },
+
+  // 단지×은행 프로필 — 같은 은행이라도 단지마다 다른 지점/인사글/영업시간 관리.
+  getMyComplexBankProfiles: async () => {
+    const res = await fetch(`${API_BASE_URL}/v4/my-bank/complex-profiles`, { headers: getHeaders() })
+    if (!res.ok) throw new Error('단지별 은행 프로필 조회 실패')
+    return res.json()
+  },
+  getMyComplexBankProfile: async (id: string) => {
+    const res = await fetch(`${API_BASE_URL}/v4/my-bank/complex-profiles/${id}`, { headers: getHeaders() })
+    if (!res.ok) throw new Error('조회 실패')
+    return res.json()
+  },
+  createMyComplexBankProfile: async (data: object) => {
+    const res = await fetch(`${API_BASE_URL}/v4/my-bank/complex-profiles`, {
+      method: 'POST', headers: getHeaders(), body: JSON.stringify(data),
+    })
+    if (res.status === 409) throw new Error('이미 같은 단지로 등록된 프로필이 있습니다')
+    if (!res.ok) throw new Error('등록 실패')
+    return res.json()
+  },
+  updateMyComplexBankProfile: async (id: string, data: object) => {
+    const res = await fetch(`${API_BASE_URL}/v4/my-bank/complex-profiles/${id}`, {
+      method: 'PUT', headers: getHeaders(), body: JSON.stringify(data),
+    })
+    if (!res.ok) throw new Error('수정 실패')
+    return res.json()
+  },
+  deleteMyComplexBankProfile: async (id: string) => {
+    const res = await fetch(`${API_BASE_URL}/v4/my-bank/complex-profiles/${id}`, {
+      method: 'DELETE', headers: getHeaders(),
+    })
+    if (!res.ok) throw new Error('삭제 실패')
+    return res.json()
+  },
 }

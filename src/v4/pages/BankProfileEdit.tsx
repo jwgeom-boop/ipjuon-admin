@@ -92,12 +92,34 @@ export default function BankProfileEdit() {
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
           <Building2 size={22} strokeWidth={1.6} style={{ color: "var(--v4-info)" }} />
           <h1 style={{ fontSize: 18, fontWeight: 600, color: "var(--v4-text-primary)", margin: 0 }}>
-            {data.bank_name || "은행"} 프로필
+            {data.bank_name || "은행"} 프로필 (글로벌)
           </h1>
         </div>
-        <p style={{ fontSize: 12, color: "var(--v4-text-tertiary)", marginBottom: 24 }}>
-          입주민 앱(ipjuon-app)에서 보이는 은행 카드/상세 페이지에 노출되는 내용입니다. 마감 토글 시 신규 동의서 분배에서 제외됩니다.
+        <p style={{ fontSize: 12, color: "var(--v4-text-tertiary)", marginBottom: 16 }}>
+          입주민 앱(ipjuon-app)에서 보이는 은행 카드/상세 페이지에 노출되는 <strong>글로벌</strong> 내용입니다.
+          단지별 데이터가 없을 때 fallback 으로 사용됩니다. 마감 토글 시 신규 동의서 분배에서 제외됩니다.
         </p>
+        <button
+          type="button"
+          onClick={() => navigate("/v4/bank-profile/complex")}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "8px 14px",
+            fontSize: 12,
+            fontWeight: 600,
+            color: "var(--v4-info)",
+            background: "var(--v4-bg-info)",
+            border: "1px solid #B5CFEB",
+            borderRadius: 6,
+            cursor: "pointer",
+            fontFamily: "inherit",
+            marginBottom: 24,
+          }}
+        >
+          🏠 단지별 프로필 관리 →
+        </button>
 
         {/* 마감 여부 */}
         <Section title="모집 상태">

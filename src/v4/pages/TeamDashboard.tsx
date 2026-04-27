@@ -15,6 +15,7 @@ import {
   Calendar,
   FileText,
   Layers,
+  Pencil,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { MANAGER_ASSIGNEE_NAME } from "../auth/role";
@@ -45,6 +46,7 @@ import { SigningListModal } from "../home/SigningListModal";
 import { RepaymentEmbedModal } from "../team/RepaymentEmbedModal";
 import { PipelineOverviewModal } from "../team/PipelineOverviewModal";
 import { MonthlyPerformanceModal } from "../home/MonthlyPerformanceModal";
+import { ComplexBankInlineEdit } from "../bankprofile/ComplexBankInlineEdit";
 
 const WEEKDAY_KR = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -93,6 +95,7 @@ export default function TeamDashboard() {
   const { tasks: apiTasks, refetch: refetchTasks } = useMyConsultations();
 
   const [newCustomerOpen, setNewCustomerOpen] = useState(false);
+  const [bankInfoEditOpen, setBankInfoEditOpen] = useState(false);
   const [consultationListOpen, setConsultationListOpen] = useState(false);
   const [signingOpen, setSigningOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
@@ -379,6 +382,31 @@ export default function TeamDashboard() {
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            {/* 단지 선택된 상태에서만 [✏️ 단지 안내글 편집] 버튼 노출 — 페이지 이동 없이 모달로 즉시 편집 */}
+            {selectedComplex !== ALL_COMPLEXES && (
+              <button
+                type="button"
+                onClick={() => setBankInfoEditOpen(true)}
+                title={`${selectedComplex} 단지의 ${bankName ?? "본인 은행"} 안내글 편집 (입주민 앱 표시)`}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "7px 12px",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  color: "var(--v4-info)",
+                  background: "var(--v4-bg-info)",
+                  border: "1px solid #B5CFEB",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                <Pencil size={13} strokeWidth={2} />
+                단지 안내글 편집
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setNewCustomerOpen(true)}
@@ -847,6 +875,12 @@ export default function TeamDashboard() {
           }}
         />
       ) : null}
+      {bankInfoEditOpen && selectedComplex !== ALL_COMPLEXES && (
+        <ComplexBankInlineEdit
+          complexName={selectedComplex}
+          onClose={() => setBankInfoEditOpen(false)}
+        />
+      )}
       {consultationListOpen ? (
         <ConsultationListModal
           items={scopedTasks}

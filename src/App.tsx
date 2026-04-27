@@ -15,6 +15,7 @@ import BankRequestDoc from "./pages/BankRequestDoc";
 import BankSettlement from "./pages/BankSettlement";
 import InviteLogs from "./pages/InviteLogs";
 import ComplexTemplates from "./pages/ComplexTemplates";
+import BankProfileEdit from "./v4/pages/BankProfileEdit";
 import NotFound from "./pages/NotFound";
 import V4Home from "./v4/pages/Home";
 import HomeInbox from "./v4/pages/HomeInbox";
@@ -52,6 +53,7 @@ const App = () => (
               <Route path="/v4/wizard/reservation/:id" element={<ReservationWizard />} />
               <Route path="/v4/wizard/consultation/:id" element={<ConsultationWizard />} />
               <Route path="/v4/complex-templates" element={<ComplexTemplates />} />
+              <Route path="/v4/bank-profile" element={<BankProfileEdit />} />
             </Route>
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route element={<AdminLayout />}>

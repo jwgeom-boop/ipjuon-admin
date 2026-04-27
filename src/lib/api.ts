@@ -233,4 +233,18 @@ export const api = {
     if (!res.ok) throw new Error('일괄 적용 실패')
     return res.json()
   },
+
+  // 은행 프로필 — 입주민 앱(ipjuon-app) 카드 콘텐츠. 팀장/상담사가 본인 은행만 관리.
+  getMyBankProfile: async () => {
+    const res = await fetch(`${API_BASE_URL}/v4/bank-profile`, { headers: getHeaders() })
+    if (!res.ok) throw new Error('은행 프로필 조회 실패')
+    return res.json()
+  },
+  updateMyBankProfile: async (data: object) => {
+    const res = await fetch(`${API_BASE_URL}/v4/bank-profile`, {
+      method: 'PUT', headers: getHeaders(), body: JSON.stringify(data),
+    })
+    if (!res.ok) throw new Error('은행 프로필 수정 실패')
+    return res.json()
+  },
 }

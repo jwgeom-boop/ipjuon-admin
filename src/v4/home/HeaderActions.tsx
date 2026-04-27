@@ -1,14 +1,15 @@
-import { UserPlus, List, Calendar, FileText, BarChart3, Layers, Home } from "lucide-react";
+import { UserPlus, List, Calendar, FileText, BarChart3, Layers, Home, Building2 } from "lucide-react";
 
-export type HeaderActionKey = "new" | "list" | "signing" | "print" | "pipeline" | "monthly" | "complex";
+export type HeaderActionKey = "new" | "list" | "signing" | "print" | "pipeline" | "monthly" | "complex" | "bankProfile";
 
 const SECONDARY_ITEMS: { key: HeaderActionKey; label: string; icon: typeof FileText }[] = [
-  { key: "list",     label: "상담 리스트",   icon: List },
-  { key: "signing",  label: "자서 예약",     icon: Calendar },
-  { key: "print",    label: "상환조회",      icon: FileText },
-  { key: "complex",  label: "단지 정보",     icon: Home },
-  { key: "pipeline", label: "전체 진행현황", icon: Layers },
-  { key: "monthly",  label: "월별 실적",     icon: BarChart3 },
+  { key: "list",        label: "상담 리스트",   icon: List },
+  { key: "signing",     label: "자서 예약",     icon: Calendar },
+  { key: "print",       label: "상환조회",      icon: FileText },
+  { key: "complex",     label: "단지 정보",     icon: Home },
+  { key: "bankProfile", label: "은행 프로필",   icon: Building2 },
+  { key: "pipeline",    label: "전체 진행현황", icon: Layers },
+  { key: "monthly",     label: "월별 실적",     icon: BarChart3 },
 ];
 
 export function HeaderActions({

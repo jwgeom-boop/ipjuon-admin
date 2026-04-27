@@ -236,6 +236,18 @@ export function UserMenu({ impersonatingAs }: Props = {}) {
             단지별 프로필 관리
           </button>
 
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => { setOpen(false); navigate("/v4/complex-templates"); }}
+            style={menuItemStyle}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--v4-bg-tertiary)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+          >
+            <Home size={13} strokeWidth={1.8} />
+            단지 정보 관리 (관리비·정산항목)
+          </button>
+
           <div style={{ borderTop: "1px solid var(--v4-border-light)" }} />
 
           <button

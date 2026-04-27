@@ -1,11 +1,12 @@
-import { UserPlus, List, Calendar, FileText, BarChart3, Layers } from "lucide-react";
+import { UserPlus, List, Calendar, FileText, BarChart3, Layers, Home } from "lucide-react";
 
-export type HeaderActionKey = "new" | "list" | "signing" | "print" | "pipeline" | "monthly";
+export type HeaderActionKey = "new" | "list" | "signing" | "print" | "pipeline" | "monthly" | "complex";
 
 const SECONDARY_ITEMS: { key: HeaderActionKey; label: string; icon: typeof FileText }[] = [
   { key: "list",     label: "상담 리스트",   icon: List },
   { key: "signing",  label: "자서 예약",     icon: Calendar },
   { key: "print",    label: "상환조회",      icon: FileText },
+  { key: "complex",  label: "단지 정보",     icon: Home },
   { key: "pipeline", label: "전체 진행현황", icon: Layers },
   { key: "monthly",  label: "월별 실적",     icon: BarChart3 },
 ];

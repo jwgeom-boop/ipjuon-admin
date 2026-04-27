@@ -14,6 +14,7 @@ import BankDashboard from "./pages/BankDashboard";
 import BankRequestDoc from "./pages/BankRequestDoc";
 import BankSettlement from "./pages/BankSettlement";
 import InviteLogs from "./pages/InviteLogs";
+import ComplexTemplates from "./pages/ComplexTemplates";
 import NotFound from "./pages/NotFound";
 import V4Home from "./v4/pages/Home";
 import HomeInbox from "./v4/pages/HomeInbox";
@@ -50,6 +51,7 @@ const App = () => (
               <Route path="/v4/wizard/signing/:id" element={<SigningWizard />} />
               <Route path="/v4/wizard/reservation/:id" element={<ReservationWizard />} />
               <Route path="/v4/wizard/consultation/:id" element={<ConsultationWizard />} />
+              <Route path="/v4/complex-templates" element={<ComplexTemplates />} />
             </Route>
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route element={<AdminLayout />}>
@@ -58,6 +60,7 @@ const App = () => (
               <Route path="/vendors" element={<VendorManagement />} />
               <Route path="/notices" element={<Notices />} />
               <Route path="/invites" element={<InviteLogs />} />
+              <Route path="/admin/complex-templates" element={<ComplexTemplates />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

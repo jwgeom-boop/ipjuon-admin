@@ -174,4 +174,63 @@ export const api = {
     if (!res.ok) throw new Error('초대 내역 조회 실패')
     return res.json()
   },
+
+  // 단지(아파트) 템플릿 — 입주안내문 정보를 단지 단위로 1회 등록 → 세대 등록 시 자동 채움.
+  getComplexTemplates: async () => {
+    const res = await fetch(`${API_BASE_URL}/v4/complex-templates`, { headers: getHeaders() })
+    if (!res.ok) throw new Error('단지 템플릿 조회 실패')
+    return res.json()
+  },
+  getComplexTemplate: async (id: string) => {
+    const res = await fetch(`${API_BASE_URL}/v4/complex-templates/${id}`, { headers: getHeaders() })
+    if (!res.ok) throw new Error('단지 템플릿 조회 실패')
+    return res.json()
+  },
+  getComplexTemplateByName: async (complexName: string) => {
+    const res = await fetch(
+      `${API_BASE_URL}/v4/complex-templates/by-name/${encodeURIComponent(complexName)}`,
+      { headers: getHeaders() },
+    )
+    if (res.status === 404) return null
+    if (!res.ok) throw new Error('단지 템플릿 조회 실패')
+    return res.json()
+  },
+  resolveComplexTemplate: async (complexName: string, aptType?: string) => {
+    const query = aptType ? `?aptType=${encodeURIComponent(aptType)}` : ''
+    const res = await fetch(
+      `${API_BASE_URL}/v4/complex-templates/by-name/${encodeURIComponent(complexName)}/resolve${query}`,
+      { headers: getHeaders() },
+    )
+    if (res.status === 404) return null
+    if (!res.ok) throw new Error('자동 채움 데이터 조회 실패')
+    return res.json()
+  },
+  createComplexTemplate: async (data: object) => {
+    const res = await fetch(`${API_BASE_URL}/v4/complex-templates`, {
+      method: 'POST', headers: getHeaders(), body: JSON.stringify(data),
+    })
+    if (!res.ok) throw new Error('단지 템플릿 등록 실패')
+    return res.json()
+  },
+  updateComplexTemplate: async (id: string, data: object) => {
+    const res = await fetch(`${API_BASE_URL}/v4/complex-templates/${id}`, {
+      method: 'PUT', headers: getHeaders(), body: JSON.stringify(data),
+    })
+    if (!res.ok) throw new Error('단지 템플릿 수정 실패')
+    return res.json()
+  },
+  deleteComplexTemplate: async (id: string) => {
+    const res = await fetch(`${API_BASE_URL}/v4/complex-templates/${id}`, {
+      method: 'DELETE', headers: getHeaders(),
+    })
+    if (!res.ok) throw new Error('단지 템플릿 삭제 실패')
+    return res.json()
+  },
+  applyComplexTemplateBatch: async (id: string, body: { fields?: string[]; exclude_status?: string[] }) => {
+    const res = await fetch(`${API_BASE_URL}/v4/complex-templates/${id}/apply-batch`, {
+      method: 'POST', headers: getHeaders(), body: JSON.stringify(body),
+    })
+    if (!res.ok) throw new Error('일괄 적용 실패')
+    return res.json()
+  },
 }

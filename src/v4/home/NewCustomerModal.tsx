@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { UserPlus, X } from "lucide-react";
+import { UserPlus, X, Info } from "lucide-react";
+import { api } from "@/lib/api";
 
 export interface NewCustomerData {
   customerName: string;
@@ -38,6 +39,24 @@ export function NewCustomerModal({
     note: "",
   });
   const firstFieldRef = useRef<HTMLInputElement>(null);
+
+  // 단지 템플릿 미리보기 — 단지/평형 변경 시 자동 조회 (debounce 350ms)
+  const [templatePreview, setTemplatePreview] = useState<any | null>(null);
+  const [templateLoading, setTemplateLoading] = useState(false);
+  useEffect(() => {
+    if (!form.complex) { setTemplatePreview(null); return; }
+    setTemplateLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const t = await api.resolveComplexTemplate(form.complex, form.size || undefined);
+        setTemplatePreview(t);
+      } catch {
+        setTemplatePreview(null);
+      }
+      setTemplateLoading(false);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [form.complex, form.size]);
 
   useEffect(() => {
     firstFieldRef.current?.focus();
@@ -226,6 +245,11 @@ export function NewCustomerModal({
             />
           </Field>
 
+          {/* 단지 템플릿 미리보기 — 자동 채움 가능 항목 안내 */}
+          <div style={{ gridColumn: "1 / -1" }}>
+            <ComplexInfoBox loading={templateLoading} preview={templatePreview} aptType={form.size} complex={form.complex} />
+          </div>
+
           <Field label="유입 경로" span={2}>
             <select
               value={form.source}
@@ -315,6 +339,72 @@ const inputStyle: React.CSSProperties = {
   border: "1px solid var(--v4-border-secondary)",
   borderRadius: 6,
   boxSizing: "border-box",
+};
+
+function ComplexInfoBox({
+  loading, preview, aptType, complex,
+}: {
+  loading: boolean;
+  preview: any | null;
+  aptType: string;
+  complex: string;
+}) {
+  if (loading) {
+    return (
+      <div style={infoBoxStyle}>
+        <Info size={12} style={{ color: "var(--v4-text-tertiary)" }} />
+        <span style={{ fontSize: 11, color: "var(--v4-text-tertiary)" }}>단지 정보 조회 중...</span>
+      </div>
+    );
+  }
+  if (!preview) {
+    if (!complex) return null;
+    return (
+      <div style={{ ...infoBoxStyle, background: "#FFF8E1", borderColor: "#FCE58F" }}>
+        <Info size={12} style={{ color: "#B45309" }} />
+        <span style={{ fontSize: 11, color: "#92400E" }}>
+          [{complex}] 단지 정보가 등록되어 있지 않습니다. 관리자/팀장 화면 → "아파트 관리"에서 먼저 등록하면 정산 단계에서 자동 채움 가능합니다.
+        </span>
+      </div>
+    );
+  }
+  const matchedFee = preview.matched_mgmt_fee_amount as number | undefined;
+  const matchedType = preview.matched_apt_type as string | undefined;
+  return (
+    <div style={infoBoxStyle}>
+      <Info size={12} style={{ color: "var(--v4-info)", flexShrink: 0, marginTop: 2 }} />
+      <div style={{ fontSize: 11, color: "var(--v4-text-secondary)", lineHeight: 1.5 }}>
+        <div style={{ fontWeight: 600, color: "var(--v4-text-primary)" }}>
+          ✓ [{preview.complex_name}] 단지 정보 등록됨
+        </div>
+        <div style={{ marginTop: 2 }}>
+          관리비 예치금: {preview.mgmt_fee_bank ?? ""} {preview.mgmt_fee_account ?? "—"}
+          {matchedFee != null && (
+            <> · {matchedType}평 {matchedFee.toLocaleString("ko-KR")}원</>
+          )}
+          {!matchedFee && aptType && (
+            <span style={{ color: "#B45309" }}> · {aptType}평 금액 미등록</span>
+          )}
+        </div>
+        {preview.general_option_account && (
+          <div>옵션대금: {preview.general_option_bank ?? ""} {preview.general_option_account}</div>
+        )}
+        <div style={{ marginTop: 3, fontSize: 10, color: "var(--v4-text-tertiary)" }}>
+          정산 단계(실행)에서 [단지 정보 자동 채움] 버튼으로 위 정보가 자동 입력됩니다.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const infoBoxStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: 6,
+  padding: "8px 10px",
+  borderRadius: 6,
+  background: "var(--v4-bg-info)",
+  border: "1px solid #C5DAEF",
 };
 
 function Field({

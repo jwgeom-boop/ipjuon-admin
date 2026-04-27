@@ -2,13 +2,14 @@ import { Outlet, useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
-import { ClipboardList, Building2, Megaphone, LayoutDashboard, LogOut, Menu, X, Send } from "lucide-react";
+import { ClipboardList, Building2, Megaphone, LayoutDashboard, LogOut, Menu, X, Send, Home } from "lucide-react";
 import { useState, useEffect } from "react";
 
 const sidebarItems = [
   { title: "대시보드", url: "/dashboard", icon: LayoutDashboard },
   { title: "상담신청 관리", url: "/consultation", icon: ClipboardList },
   { title: "초대 발송 내역", url: "/invites", icon: Send },
+  { title: "아파트 관리", url: "/admin/complex-templates", icon: Home },
   { title: "업체 계정 관리", url: "/vendors", icon: Building2 },
   { title: "공지사항 관리", url: "/notices", icon: Megaphone },
 ];

@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, FileSpreadsheet, Printer } from "lucide-react";
+import { ArrowLeft, FileSpreadsheet, Printer, Download } from "lucide-react";
 import { toast } from "sonner";
 import { Kbd } from "../components/Kbd";
 import { getExecutionFixture, type ExecutionData } from "../wizard/executionFixtures";
@@ -139,6 +139,53 @@ export default function ExecutionWizard({ idProp, embedded, embedTask, onComplet
     }
   };
 
+  // 단지 템플릿에서 자동 채움. 빈 필드만 덮어쓰고, 사용자가 이미 입력한 값은 보존.
+  const handleAutoFillFromComplex = async () => {
+    if (!data.complex) {
+      toast.error("단지 정보가 없습니다");
+      return;
+    }
+    const aptType = (window.prompt(
+      `[${data.complex}] 평형을 입력하세요 (예: 84A, 59B). 비우면 단지 공통 필드만 채웁니다.`,
+      ""
+    ) ?? "").trim();
+    try {
+      const t = await api.resolveComplexTemplate(data.complex, aptType || undefined);
+      if (!t) {
+        toast.error("단지 템플릿이 등록되지 않았습니다", {
+          description: "관리자/팀장 화면에서 [아파트 관리] 또는 [단지 정보]에서 먼저 등록해 주세요.",
+        });
+        return;
+      }
+      const filled: string[] = [];
+      const next = { ...data };
+      const fill = (k: keyof ExecutionData, v: any, label: string) => {
+        const cur = (next as any)[k];
+        const empty = cur === "" || cur === 0 || cur == null;
+        if (v != null && v !== "" && empty) {
+          (next as any)[k] = v;
+          filled.push(label);
+        }
+      };
+      fill("mgmtFeeBank",     t.mgmt_fee_bank,         "선수관리비 은행");
+      fill("mgmtFeeAccount",  t.mgmt_fee_account,      "선수관리비 계좌");
+      if (t.matched_mgmt_fee_amount != null) fill("mgmtFee", t.matched_mgmt_fee_amount, `선수관리비 금액(${t.matched_apt_type}평)`);
+      fill("stampDuty",       t.stamp_duty,            "인지대");
+      fill("optionsBank",     t.general_option_bank,   "유상옵션 은행");
+      fill("optionsAccount",  t.general_option_account,"유상옵션 계좌");
+      fill("supportCenterPhone", t.mgmt_office_phone,  "관리사무소 전화");
+      fill("supportCenterFax",   t.mgmt_office_fax,    "관리사무소 팩스");
+      setData(next);
+      if (filled.length === 0) {
+        toast.info("자동 채움할 빈 필드가 없습니다", { description: "이미 입력된 필드는 덮어쓰지 않습니다." });
+      } else {
+        toast.success(`${filled.length}개 필드 자동 채움 완료`, { description: filled.join(", ") });
+      }
+    } catch (e: any) {
+      toast.error(e?.message ?? "자동 채움 실패");
+    }
+  };
+
   return (
     <div
       className={embedded ? "v4-execution-wizard" : "v4-root v4-execution-wizard"}
@@ -242,6 +289,29 @@ export default function ExecutionWizard({ idProp, embedded, embedTask, onComplet
           {embedded ? null : (
             <span style={{ color: "var(--v4-text-tertiary)" }}>{savedLabel}</span>
           )}
+          <button
+            type="button"
+            onClick={handleAutoFillFromComplex}
+            title="단지 템플릿에서 빈 필드 자동 채움"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              height: 28,
+              padding: "0 10px",
+              fontSize: 12.5,
+              color: "var(--v4-info)",
+              background: "var(--v4-bg-info)",
+              border: "1px solid #B5CFEB",
+              borderRadius: "var(--v4-radius-md)",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              fontWeight: 600,
+            }}
+          >
+            <Download size={13} strokeWidth={1.8} />
+            단지 정보 자동 채움
+          </button>
           <button
             type="button"
             onClick={handlePrint}

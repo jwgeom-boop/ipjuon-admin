@@ -614,6 +614,7 @@ export default function HomeInbox() {
                 else if (key === "print") setReportModalOpen(true);
                 else if (key === "list") setConsultationListOpen(true);
                 else if (key === "monthly") setMonthlyOpen(true);
+                else if (key === "complex") navigate("/v4/complex-templates");
               }}
             />
             <UserMenu impersonatingAs={impersonating ? managerDrillAssignee : null} />

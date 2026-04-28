@@ -37,20 +37,24 @@ export const api = {
     return res.json()
   },
 
-  // ===== 자서 일정 슬롯 (B2C 양방향 워크플로) =====
-  // 1. 슬롯 제시 (입주민 앱으로 푸시 발송)
-  setSigningSlots: async (id: string, slots: Array<{ date: string; time: string; location: string }>) => {
-    const res = await fetch(`${API_BASE_URL}/bank/consultations/${id}/signing-slots`, {
+  // ===== 자서 일정 캘린더 v2 (B2C 양방향 워크플로) =====
+  setSigningCalendar: async (id: string, payload: {
+    window_start?: string
+    window_end?: string
+    excluded_dates: string[]
+    available_times: string[]
+    available_locations: string[]
+  }) => {
+    const res = await fetch(`${API_BASE_URL}/bank/consultations/${id}/signing-calendar`, {
       method: 'PUT',
       headers: getHeaders(),
-      body: JSON.stringify({ slots }),
+      body: JSON.stringify(payload),
     })
-    if (!res.ok) throw new Error('슬롯 제시 실패')
+    if (!res.ok) throw new Error('캘린더 설정 실패')
     return res.json()
   },
-  // 2. 입주민 선택분 확정 (signing_date/time/location 셋팅 + 푸시)
-  confirmSigningSlot: async (id: string) => {
-    const res = await fetch(`${API_BASE_URL}/bank/consultations/${id}/confirm-signing-slot`, {
+  confirmSigningCalendar: async (id: string) => {
+    const res = await fetch(`${API_BASE_URL}/bank/consultations/${id}/confirm-signing-calendar`, {
       method: 'POST',
       headers: getHeaders(),
     })
@@ -60,7 +64,13 @@ export const api = {
     }
     return res.json()
   },
-  // 3. 단건 조회 (슬롯 다이얼로그가 본인 데이터 새로고침용)
+  getOtherSigningBookings: async (id: string) => {
+    const res = await fetch(`${API_BASE_URL}/bank/consultations/${id}/signing-calendar/bookings`, {
+      headers: getHeaders(),
+    })
+    if (!res.ok) throw new Error('예약 조회 실패')
+    return res.json() as Promise<Record<string, Array<{ time: string; customer: string }>>>
+  },
   getConsultationById: async (id: string) => {
     const res = await fetch(`${API_BASE_URL}/consultation/${id}`, { headers: getHeaders() })
     if (!res.ok) throw new Error('조회 실패')

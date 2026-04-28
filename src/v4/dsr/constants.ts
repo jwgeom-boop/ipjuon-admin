@@ -2,9 +2,11 @@ export const DSR_CONSTANTS = {
   DSR_LIMIT_BANK: 0.4,
   DSR_LIMIT_NBFI: 0.5,
 
-  STRESS_RATE_CAPITAL: 0.03,
-  STRESS_RATE_NON_CAPITAL: 0.0075,
-  STRESS_RATE_NON_MORTGAGE: 0.015,
+  // 스트레스 DSR 가산금리 (3단계, 2025.7 시행 / 2025.10.15 대책으로 수도권·규제 상향)
+  STRESS_RATE_CAPITAL_REGULATED: 0.03,      // 수도권·규제 +3.0%p
+  STRESS_RATE_CAPITAL_NON_REGULATED: 0.015, // 수도권 비규제 +1.5%p
+  STRESS_RATE_NON_CAPITAL: 0.0075,          // 지방 +0.75%p
+  STRESS_RATE_NON_MORTGAGE: 0.015,          // 신용대출 1억 초과 (수도권) +1.5%p
 
   STRESS_RATIO_VARIABLE: 1.0,
   STRESS_RATIO_MIXED_3Y: 1.0,
@@ -18,7 +20,7 @@ export const DSR_CONSTANTS = {
 
   EXCLUDED_LOAN_TYPES: ["전세대출", "중도금대출", "소액신용대출"] as const,
 
-  LAST_UPDATED: "2026-04-21",
+  LAST_UPDATED: "2026-04-28", // 2025.10.16 시행 (10.15 대책)
 } as const;
 
 export type RateType =
@@ -31,6 +33,9 @@ export type RepaymentType =
   | "principal_only"
   | "maturity_only";
 
+/** 1금융권(시중은행 DSR 40%) vs 상호금융 (DSR 50%) */
+export type FinancialSector = "bank" | "nbfi";
+
 export function getStressRatio(rateType: RateType): number {
   switch (rateType) {
     case "variable":
@@ -40,6 +45,19 @@ export function getStressRatio(rateType: RateType): number {
     case "mixed_5y":
       return DSR_CONSTANTS.STRESS_RATIO_MIXED_5Y;
   }
+}
+
+/**
+ * 지역 기반 스트레스 가산금리 (10.15 대책 기준).
+ * - 수도권·규제: 3.0%p
+ * - 수도권 비규제: 1.5%p
+ * - 지방: 0.75%p
+ */
+export function getStressBaseRate(isCapital: boolean, isRegulated: boolean): number {
+  if (!isCapital) return DSR_CONSTANTS.STRESS_RATE_NON_CAPITAL;
+  return isRegulated
+    ? DSR_CONSTANTS.STRESS_RATE_CAPITAL_REGULATED
+    : DSR_CONSTANTS.STRESS_RATE_CAPITAL_NON_REGULATED;
 }
 
 export const RATE_TYPE_LABEL: Record<RateType, string> = {
@@ -52,4 +70,9 @@ export const REPAYMENT_TYPE_LABEL: Record<RepaymentType, string> = {
   principal_interest: "원리금균등",
   principal_only: "원금균등",
   maturity_only: "만기일시",
+};
+
+export const FINANCIAL_SECTOR_LABEL: Record<FinancialSector, string> = {
+  bank: "1금융권 (DSR 40%)",
+  nbfi: "상호금융 (DSR 50%)",
 };

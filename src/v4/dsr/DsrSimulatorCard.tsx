@@ -1,10 +1,13 @@
 import { CSSProperties, ReactNode, useMemo, useState } from "react";
 import {
   DSR_CONSTANTS,
+  FINANCIAL_SECTOR_LABEL,
+  FinancialSector,
   RATE_TYPE_LABEL,
   REPAYMENT_TYPE_LABEL,
   RateType,
   RepaymentType,
+  getStressBaseRate,
   getStressRatio,
 } from "./constants";
 import { calculateDSR, ExistingLoan, NewMortgage } from "./calculator";
@@ -12,6 +15,10 @@ import { calculateDSR, ExistingLoan, NewMortgage } from "./calculator";
 interface SimInputs {
   spouseIncome: number;
   isCapitalArea: boolean;
+  /** 규제지역(투기과열·조정·토허) 여부. 10.15 대책으로 수도권·규제만 +3.0%p */
+  isRegulated: boolean;
+  /** 1금융권(DSR 40%) vs 상호금융(DSR 50%) */
+  sector: FinancialSector;
   newRate: number;
   newRateType: RateType;
   newRepayment: RepaymentType;
@@ -42,6 +49,8 @@ export function DsrSimulatorCard({
   const [sim, setSim] = useState<SimInputs>({
     spouseIncome: 0,
     isCapitalArea: true,
+    isRegulated: true,           // 기본: 수도권·규제 (보수적 추정)
+    sector: "bank",              // 기본: 1금융권
     newRate: 4.5,
     newRateType: "variable",
     newRepayment: "principal_interest",
@@ -95,7 +104,8 @@ export function DsrSimulatorCard({
     return calculateDSR({
       income: annualIncome,
       spouseIncome: sim.spouseIncome > 0 ? sim.spouseIncome : undefined,
-      property: { isCapitalArea: sim.isCapitalArea },
+      property: { isCapitalArea: sim.isCapitalArea, isRegulated: sim.isRegulated },
+      sector: sim.sector,
       existingLoans,
       newLoan,
     });
@@ -133,12 +143,12 @@ export function DsrSimulatorCard({
   const limitMarkerPct = MAX_BAR_PCT > 0 ? (limitPct / MAX_BAR_PCT) * 100 : 0;
 
   const baseRatePct = sim.newRate || interestRate || 0;
-  const areaAddPct = sim.isCapitalArea
-    ? DSR_CONSTANTS.STRESS_RATE_CAPITAL * 100
-    : DSR_CONSTANTS.STRESS_RATE_NON_CAPITAL * 100;
+  const areaAddPct = getStressBaseRate(sim.isCapitalArea, sim.isRegulated) * 100;
   const stressAddPct = areaAddPct * getStressRatio(sim.newRateType);
   const stressedRatePct = baseRatePct + stressAddPct;
-  const areaLabel = sim.isCapitalArea ? "수도권" : "비수도권";
+  const areaLabel = sim.isCapitalArea
+    ? sim.isRegulated ? "수도권·규제" : "수도권 비규제"
+    : "지방";
 
   return (
     <section
@@ -211,8 +221,30 @@ export function DsrSimulatorCard({
             <ChipPair
               value={sim.isCapitalArea}
               onChange={(v) => setSim((s) => ({ ...s, isCapitalArea: v }))}
-              on="수도권·규제"
-              off="비수도권"
+              on="수도권"
+              off="지방"
+            />
+          </MiniRow>
+
+          {sim.isCapitalArea && (
+            <MiniRow label="규제지역">
+              <ChipPair
+                value={sim.isRegulated}
+                onChange={(v) => setSim((s) => ({ ...s, isRegulated: v }))}
+                on="규제 (서울+경기12)"
+                off="비규제"
+              />
+            </MiniRow>
+          )}
+
+          <MiniRow label="대출 신청처">
+            <SelectChips
+              value={sim.sector}
+              onChange={(v) => setSim((s) => ({ ...s, sector: v }))}
+              options={[
+                ["bank", "1금융 (DSR 40%)"],
+                ["nbfi", "상호금융 (DSR 50%)"],
+              ]}
             />
           </MiniRow>
 
@@ -480,7 +512,7 @@ export function DsrSimulatorCard({
               lineHeight: 1.4,
             }}
           >
-            ※ 은행 심사와 다를 수 있습니다. 규제 기준일 {DSR_CONSTANTS.LAST_UPDATED}.
+            ※ 은행 심사와 다를 수 있습니다. {FINANCIAL_SECTOR_LABEL[sim.sector]} · 규제 기준일 {DSR_CONSTANTS.LAST_UPDATED} (10.15 대책).
           </div>
         </aside>
       </div>

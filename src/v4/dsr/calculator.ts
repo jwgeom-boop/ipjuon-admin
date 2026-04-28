@@ -1,7 +1,9 @@
 import {
   DSR_CONSTANTS,
+  FinancialSector,
   RateType,
   RepaymentType,
+  getStressBaseRate,
   getStressRatio,
 } from "./constants";
 import {
@@ -74,7 +76,11 @@ export interface BorrowerProfile {
   spouseIncome?: number;
   property: {
     isCapitalArea: boolean;
+    /** 규제지역(투기과열·조정·토허) 여부. 수도권 비규제와 분리. 10.15 대책 핵심 */
+    isRegulated: boolean;
   };
+  /** 1금융권(DSR 40%) vs 상호금융(DSR 50%). 미지정 시 기본 bank */
+  sector?: FinancialSector;
   existingLoans: ExistingLoan[];
   newLoan?: NewMortgage;
 }
@@ -99,15 +105,18 @@ export interface DSRResult {
   assumptions: string[];
 }
 
-function mortgageStressRate(rate: number, rateType: RateType, isCapital: boolean): number {
-  const base = isCapital
-    ? DSR_CONSTANTS.STRESS_RATE_CAPITAL
-    : DSR_CONSTANTS.STRESS_RATE_NON_CAPITAL;
+function mortgageStressRate(
+  rate: number,
+  rateType: RateType,
+  isCapital: boolean,
+  isRegulated: boolean,
+): number {
+  const base = getStressBaseRate(isCapital, isRegulated);
   return rate + base * getStressRatio(rateType);
 }
 
-function newMortgageAnnual(loan: NewMortgage, isCapital: boolean): number {
-  const stressedRate = mortgageStressRate(loan.rate, loan.rateType, isCapital);
+function newMortgageAnnual(loan: NewMortgage, isCapital: boolean, isRegulated: boolean): number {
+  const stressedRate = mortgageStressRate(loan.rate, loan.rateType, isCapital, isRegulated);
   const months = loan.years * 12;
 
   switch (loan.repaymentType) {
@@ -122,10 +131,11 @@ function newMortgageAnnual(loan: NewMortgage, isCapital: boolean): number {
 
 function existingMortgageAnnual(
   loan: Extract<ExistingLoan, { type: "주택담보대출" }>,
-  isCapital: boolean
+  isCapital: boolean,
+  isRegulated: boolean,
 ): number {
   const rateType = loan.rateType ?? "variable";
-  const stressedRate = mortgageStressRate(loan.rate, rateType, isCapital);
+  const stressedRate = mortgageStressRate(loan.rate, rateType, isCapital, isRegulated);
   const months = Math.max(1, loan.remainingYears) * 12;
   return mortgagePayment(loan.balance, stressedRate, months) * 12;
 }
@@ -157,11 +167,13 @@ function fixedMonthlyAnnual(
 
 export function calculateDSR(profile: BorrowerProfile): DSRResult {
   const isCapital = profile.property.isCapitalArea;
+  const isRegulated = profile.property.isRegulated;
+  const sector: FinancialSector = profile.sector ?? "bank";
   const breakdown: DSRBreakdownItem[] = [];
   const assumptions: string[] = [];
 
   if (profile.newLoan && profile.newLoan.amount > 0) {
-    const annual = newMortgageAnnual(profile.newLoan, isCapital);
+    const annual = newMortgageAnnual(profile.newLoan, isCapital, isRegulated);
     breakdown.push({
       id: "new",
       label: "신규 잔금대출",
@@ -172,7 +184,7 @@ export function calculateDSR(profile: BorrowerProfile): DSRResult {
           : undefined,
     });
     assumptions.push(
-      `신규 대출 스트레스 금리: ${(mortgageStressRate(profile.newLoan.rate, profile.newLoan.rateType, isCapital) * 100).toFixed(2)}%`
+      `신규 대출 스트레스 금리: ${(mortgageStressRate(profile.newLoan.rate, profile.newLoan.rateType, isCapital, isRegulated) * 100).toFixed(2)}%`
     );
   }
 
@@ -186,7 +198,7 @@ export function calculateDSR(profile: BorrowerProfile): DSRResult {
 
     switch (loan.type) {
       case "주택담보대출":
-        annual = existingMortgageAnnual(loan, isCapital);
+        annual = existingMortgageAnnual(loan, isCapital, isRegulated);
         break;
       case "신용대출":
         annual = creditLoanAnnual(loan);
@@ -219,7 +231,7 @@ export function calculateDSR(profile: BorrowerProfile): DSRResult {
   const income = profile.income + (profile.spouseIncome ?? 0);
   const totalAnnual = breakdown.reduce((sum, b) => sum + b.annual, 0);
   const dsr = income > 0 ? totalAnnual / income : 0;
-  const limit = DSR_CONSTANTS.DSR_LIMIT_BANK;
+  const limit = sector === "nbfi" ? DSR_CONSTANTS.DSR_LIMIT_NBFI : DSR_CONSTANTS.DSR_LIMIT_BANK;
   const headroom = Math.max(0, income * limit - totalAnnual);
 
   return {
@@ -244,6 +256,10 @@ export function maxLoanUnderDSR(
   const high = opts.high ?? 2_000_000_000;
   const precision = opts.precision ?? 100_000;
 
+  const sectorLimit = (profile.sector ?? "bank") === "nbfi"
+    ? DSR_CONSTANTS.DSR_LIMIT_NBFI
+    : DSR_CONSTANTS.DSR_LIMIT_BANK;
+
   let lo = low;
   let hi = high;
   while (hi - lo > precision) {
@@ -252,7 +268,7 @@ export function maxLoanUnderDSR(
       ...profile,
       newLoan: { ...profile.newLoan, amount: mid },
     });
-    if (res.dsr <= DSR_CONSTANTS.DSR_LIMIT_BANK) lo = mid;
+    if (res.dsr <= sectorLimit) lo = mid;
     else hi = mid;
   }
   return Math.floor(lo / precision) * precision;

@@ -27,6 +27,43 @@ function inferCopies(name?: string): number {
   return 1;
 }
 
+function CopiesInput({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  return (
+    <input
+      type="number"
+      min={0}
+      max={99}
+      value={value}
+      onChange={(e) => {
+        const n = Number(e.target.value);
+        if (Number.isFinite(n) && n >= 0) onChange(n);
+      }}
+      style={{
+        width: "100%",
+        padding: "3px 4px",
+        textAlign: "center",
+        border: "1px solid transparent",
+        borderRadius: 4,
+        fontSize: 12,
+        fontWeight: 600,
+        fontVariantNumeric: "tabular-nums",
+        background: "transparent",
+        color: "var(--v4-text-primary)",
+        fontFamily: "inherit",
+        cursor: "pointer",
+      }}
+      onFocus={(e) => {
+        e.currentTarget.style.borderColor = "var(--v4-border-secondary)";
+        e.currentTarget.style.background = "var(--v4-bg-primary)";
+      }}
+      onBlur={(e) => {
+        e.currentTarget.style.borderColor = "transparent";
+        e.currentTarget.style.background = "transparent";
+      }}
+    />
+  );
+}
+
 function fmt(n: number) {
   return n.toLocaleString("ko-KR");
 }
@@ -476,9 +513,7 @@ export default function SigningWizard({
                     <span style={{ textAlign: "center", fontSize: 11, color: doc.required ? "var(--v4-danger)" : "var(--v4-text-tertiary)", fontWeight: 600 }}>
                       {doc.required ? "필수" : "선택"}
                     </span>
-                    <span style={{ textAlign: "center", fontSize: 12, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-                      {doc.copies ?? inferCopies(doc.name)}
-                    </span>
+                    <CopiesInput value={doc.copies ?? inferCopies(doc.name)} onChange={(n) => updateDoc(i, { copies: n })} />
                     <Input
                       value={doc.note ?? ""}
                       onChange={(v) => updateDoc(i, { note: v })}
@@ -513,9 +548,7 @@ export default function SigningWizard({
                   <span style={{ textAlign: "center", fontSize: 11, color: doc.required ? "var(--v4-danger)" : "var(--v4-text-tertiary)", fontWeight: 600 }}>
                     {doc.required ? "필수" : "선택"}
                   </span>
-                  <span style={{ textAlign: "center", fontSize: 12, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-                    {doc.copies ?? inferCopies(doc.name)}
-                  </span>
+                  <CopiesInput value={doc.copies ?? inferCopies(doc.name)} onChange={(n) => updateDoc(i, { copies: n })} />
                   <Input value={doc.note ?? ""} onChange={(v) => updateDoc(i, { note: v })} placeholder="—" tertiary />
                   <StatusBadge status={doc.status} />
                 </div>

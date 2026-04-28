@@ -969,22 +969,35 @@ export default function ReservationWizard({
                   const selected = data.signingDate === iso;
                   const isToday = iso === todayIso;
                   const isExcluded = b2cExcludedDates.has(iso);
+                  const isPast = iso < todayIso;
+                  // 과거 날짜는 자서일로 선택 불가 (자동 단계 전환 방지) + B2C 제외도 의미 없음
+                  const disabled = isPast;
                   return (
                     <button
                       key={iso}
                       type="button"
+                      disabled={disabled}
                       onClick={() => {
+                        if (disabled) return;
                         if (b2cExcludeMode) {
                           toggleB2cExcluded(iso);
                         } else {
                           patch("signingDate", iso);
                         }
                       }}
-                      title={b2cExcludeMode ? (isExcluded ? "제외됨 — 클릭하면 가능으로" : "클릭하면 B2C 제외") : undefined}
+                      title={
+                        isPast
+                          ? "과거 날짜는 선택할 수 없습니다"
+                          : b2cExcludeMode
+                          ? (isExcluded ? "제외됨 — 클릭하면 가능으로" : "클릭하면 B2C 제외")
+                          : undefined
+                      }
                       style={{
                         position: "relative",
                         height: 44,
-                        background: isExcluded
+                        background: isPast
+                          ? "var(--v4-bg-secondary)"
+                          : isExcluded
                           ? "#fef2f2"
                           : selected
                           ? "var(--v4-bg-info)"
@@ -997,18 +1010,20 @@ export default function ReservationWizard({
                           ? "1.5px solid var(--v4-text-info)"
                           : "1px solid var(--v4-border-tertiary)",
                         borderRadius: 6,
-                        cursor: "pointer",
+                        cursor: disabled ? "not-allowed" : "pointer",
                         fontFamily: "inherit",
                         textAlign: "left",
                         padding: "4px 6px",
-                        opacity: inMonth ? 1 : 0.35,
+                        opacity: !inMonth ? 0.35 : isPast ? 0.35 : 1,
                       }}
                     >
                       <div
                         style={{
                           fontSize: 11.5,
                           fontWeight: selected || isToday ? 700 : 500,
-                          color: isExcluded
+                          color: isPast
+                            ? "var(--v4-text-tertiary)"
+                            : isExcluded
                             ? "#dc2626"
                             : d.getDay() === 0
                             ? "var(--v4-danger)"

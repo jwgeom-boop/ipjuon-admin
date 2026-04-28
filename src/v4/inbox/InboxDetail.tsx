@@ -1,6 +1,7 @@
-import { ReactNode } from "react";
-import { ClipboardList, MessageSquare, Phone, Check, ExternalLink } from "lucide-react";
+import { ReactNode, useState } from "react";
+import { ClipboardList, MessageSquare, Phone, Check, ExternalLink, CalendarClock } from "lucide-react";
 import type { TaskItem } from "../home/TaskRow";
+import SigningSlotDialog from "./SigningSlotDialog";
 
 const TAG_TONE: Record<string, string> = {
   실행: "v4-tag-success",
@@ -83,6 +84,7 @@ export function InboxDetail({
   const tagClass = task.tag ? TAG_TONE[task.tag] ?? "v4-tag-neutral" : "v4-tag-neutral";
   const spouse = extractSpouse(task.internalNote);
   const customerPhone = task.phones?.[0] ?? task.phone;
+  const [slotDialogOpen, setSlotDialogOpen] = useState(false);
 
   // Derive "지금 할 일" body from nextAction + funds context
   const taskTitle = task.nextAction.split("—")[0]?.trim() ?? task.nextAction;
@@ -258,6 +260,7 @@ export function InboxDetail({
           gap: 8,
           paddingTop: 16,
           borderTop: "1px solid var(--v4-border-light)",
+          flexWrap: "wrap",
         }}
       >
         <button
@@ -268,6 +271,10 @@ export function InboxDetail({
           <ExternalLink size={13} strokeWidth={2} />
           위저드 열기
           <kbd className="v4-kbd" style={{ marginLeft: 4 }}>↵</kbd>
+        </button>
+        <button type="button" onClick={() => setSlotDialogOpen(true)} className="v4-detail-action">
+          <CalendarClock size={13} strokeWidth={1.8} />
+          자서 일정 (B2C)
         </button>
         <button type="button" onClick={onSms} className="v4-detail-action">
           <MessageSquare size={13} strokeWidth={1.8} />
@@ -290,6 +297,13 @@ export function InboxDetail({
           <kbd className="v4-kbd" style={{ marginLeft: 4 }}>e</kbd>
         </button>
       </div>
+
+      {/* 자서 일정 슬롯 다이얼로그 (B2C 양방향 워크플로) */}
+      <SigningSlotDialog
+        consultationId={task.id}
+        open={slotDialogOpen}
+        onClose={() => setSlotDialogOpen(false)}
+      />
 
       <style>{`
         .v4-detail-action {

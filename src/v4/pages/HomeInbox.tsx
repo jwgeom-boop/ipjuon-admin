@@ -25,6 +25,7 @@ import SigningWizard from "./SigningWizard";
 import ExecutionWizard from "./ExecutionWizard";
 import { useInboxKeyboard } from "../inbox/useInboxKeyboard";
 import { HeaderActions } from "../home/HeaderActions";
+import NotificationBell from "../home/NotificationBell";
 import { SigningListModal } from "../home/SigningListModal";
 import { IntegratedReportModal } from "../home/IntegratedReportModal";
 import { ConsultationListModal } from "../home/ConsultationListModal";
@@ -607,6 +608,10 @@ export default function HomeInbox() {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <NotificationBell
+              tasks={filteredBase}
+              onSelect={(taskId) => setSelected(taskId)}
+            />
             <HeaderActions
               onAction={(key) => {
                 if (key === "new") setNewCustomerOpen(true);

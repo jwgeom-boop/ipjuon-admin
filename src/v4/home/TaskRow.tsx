@@ -70,6 +70,13 @@ export interface TaskItem {
   closingDate?: string;
   checkpoints?: Checkpoint[];
   legalAgent?: string;
+
+  // B2C resident actions (알림함 + 진행도)
+  bankName?: string;
+  residentLastActionAt?: string;       // ISO
+  residentLastActionType?: string;     // accept/cancel/signing_select/...
+  residentDocChecks?: string;          // 쉼표 구분 doc id
+  residentDocChecksAt?: string;
 }
 
 const TAG_TONE: Record<string, string> = {

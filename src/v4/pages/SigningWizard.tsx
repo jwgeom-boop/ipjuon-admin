@@ -411,6 +411,27 @@ export default function SigningWizard({
             자서 진행 상태
           </span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
+            {/* 입주민 앱 체크리스트 진행도 */}
+            {(() => {
+              const checks = embedTask?.residentDocChecks ?? "";
+              const checkedCount = checks ? checks.split(",").filter(Boolean).length : 0;
+              const isAllRequired = checkedCount >= 14;
+              return (
+                <span
+                  title={`입주민 앱에서 체크한 서류 수 (공통 14개 모두 체크 시 ✅)`}
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    padding: "3px 8px",
+                    borderRadius: 999,
+                    background: isAllRequired ? "#dcfce7" : "#fef3c7",
+                    color: isAllRequired ? "#166534" : "#92400e",
+                  }}
+                >
+                  📱 입주민 ☑ {checkedCount}{isAllRequired ? " ✅" : ""}
+                </span>
+              );
+            })()}
             <span style={{ fontSize: 12, color: "var(--v4-text-secondary)" }}>
               서류 <strong className="v4-tabular">{docTotals.ready}/{docTotals.total}</strong>
               {docTotals.missing > 0 ? (

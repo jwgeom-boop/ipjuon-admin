@@ -26,6 +26,11 @@ export interface ConsultationDto {
   memo?: string | null;
   stage_changed_at?: string | null; // ISO
   last_sms_sent_at?: string | null; // ISO — 자서예약 안내문 마지막 발송(복사) 시각
+  // 입주민 액션 (B2C 알림함 + SigningWizard 진행도용)
+  resident_last_action_at?: string | null;
+  resident_last_action_type?: string | null;
+  resident_doc_checks?: string | null;       // 쉼표 구분 doc id
+  resident_doc_checks_at?: string | null;
 }
 
 const LOAN_STATUS_TO_TAG: Record<string, string> = {
@@ -116,6 +121,11 @@ export function mapConsultationToTask(c: ConsultationDto): TaskItem | null {
     executionDate: c.execution_date ?? undefined,
     moveInDate: c.moving_in_date ?? undefined,
     note: c.memo ?? undefined,
+    bankName: c.vendor_name ?? undefined,
+    residentLastActionAt: c.resident_last_action_at ?? undefined,
+    residentLastActionType: c.resident_last_action_type ?? undefined,
+    residentDocChecks: c.resident_doc_checks ?? undefined,
+    residentDocChecksAt: c.resident_doc_checks_at ?? undefined,
   };
 }
 

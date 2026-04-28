@@ -20,6 +20,13 @@ import { api } from "@/lib/api";
 import { signingToBackend } from "../data/wizardPersistence";
 import { useWizardAutosave } from "../data/useWizardAutosave";
 
+/** 매수 미설정 시 서류명 기반 추론 (등본/초본/인감증명서 = 2, 그 외 = 1) */
+function inferCopies(name?: string): number {
+  if (!name) return 1;
+  if (name.includes("등본") || name.includes("초본") || name.includes("인감증명서")) return 2;
+  return 1;
+}
+
 function fmt(n: number) {
   return n.toLocaleString("ko-KR");
 }
@@ -391,14 +398,13 @@ export default function SigningWizard({
           </span>
         </div>
 
-        {/* Documents table — 카테고리별 그룹 + 매수/발급처 컬럼 */}
+        {/* Documents table — 카테고리별 그룹 + 매수 컬럼 (발급처 제거) */}
         <Card title={`지참 서류 (${docTotals.ready}/${docTotals.total})`} pad={0}>
-          <TableHeader cols="40px 1.4fr 50px 50px 130px 1fr 95px">
+          <TableHeader cols="40px 1.4fr 60px 60px 1fr 95px">
             <span></span>
             <span>서류명</span>
             <span style={{ textAlign: "center" }}>필수</span>
             <span style={{ textAlign: "center" }}>매수</span>
-            <span>발급처</span>
             <span>비고</span>
             <span style={{ textAlign: "center" }}>상태</span>
           </TableHeader>
@@ -435,7 +441,7 @@ export default function SigningWizard({
                     key={doc.id}
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "40px 1.4fr 50px 50px 130px 1fr 95px",
+                      gridTemplateColumns: "40px 1.4fr 60px 60px 1fr 95px",
                       columnGap: 12,
                       alignItems: "center",
                       padding: "4px 14px",
@@ -471,10 +477,7 @@ export default function SigningWizard({
                       {doc.required ? "필수" : "선택"}
                     </span>
                     <span style={{ textAlign: "center", fontSize: 12, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-                      {doc.copies ?? "-"}
-                    </span>
-                    <span style={{ fontSize: 11, color: "var(--v4-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {doc.issuer ?? "-"}
+                      {doc.copies ?? inferCopies(doc.name)}
                     </span>
                     <Input
                       value={doc.note ?? ""}
@@ -496,7 +499,7 @@ export default function SigningWizard({
                   key={doc.id}
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "40px 1.4fr 50px 50px 130px 1fr 95px",
+                    gridTemplateColumns: "40px 1.4fr 60px 60px 1fr 95px",
                     columnGap: 12,
                     alignItems: "center",
                     padding: "4px 14px",
@@ -510,8 +513,9 @@ export default function SigningWizard({
                   <span style={{ textAlign: "center", fontSize: 11, color: doc.required ? "var(--v4-danger)" : "var(--v4-text-tertiary)", fontWeight: 600 }}>
                     {doc.required ? "필수" : "선택"}
                   </span>
-                  <span style={{ textAlign: "center", fontSize: 12, fontWeight: 600 }}>{doc.copies ?? "-"}</span>
-                  <span style={{ fontSize: 11, color: "var(--v4-text-secondary)" }}>{doc.issuer ?? "-"}</span>
+                  <span style={{ textAlign: "center", fontSize: 12, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                    {doc.copies ?? inferCopies(doc.name)}
+                  </span>
                   <Input value={doc.note ?? ""} onChange={(v) => updateDoc(i, { note: v })} placeholder="—" tertiary />
                   <StatusBadge status={doc.status} />
                 </div>

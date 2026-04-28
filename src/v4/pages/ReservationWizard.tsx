@@ -348,6 +348,17 @@ export default function ReservationWizard({
   const navigate = useNavigate();
   const seed = taskToSeed(embedTask);
   const [docsModalOpen, setDocsModalOpen] = useState(false);
+  // B2C 캘린더 상태 — 기존 자서일 선택 캘린더와 통합
+  const [b2cExcludedDates, setB2cExcludedDates] = useState<Set<string>>(new Set());
+  const [b2cExcludeMode, setB2cExcludeMode] = useState(false);  // 토글: ON 이면 클릭 = 제외 토글
+
+  const toggleB2cExcluded = (iso: string) => {
+    setB2cExcludedDates(prev => {
+      const next = new Set(prev);
+      if (next.has(iso)) next.delete(iso); else next.add(iso);
+      return next;
+    });
+  };
 
   /** 깔끔한 인쇄용 HTML 을 새 창에 띄워서 인쇄 — window.print() 가 화면 전체 인쇄하는 문제 회피 */
   const printDocs = () => {
@@ -903,6 +914,24 @@ export default function ReservationWizard({
                   >
                     오늘
                   </button>
+                  {/* B2C 제외 편집 모드 토글 */}
+                  <button
+                    type="button"
+                    onClick={() => setB2cExcludeMode(v => !v)}
+                    title="B2C 입주민 앱에서 안 되는 날 클릭으로 제외 (기본: 자서일 선택 모드)"
+                    style={{
+                      ...navBtnStyle,
+                      width: "auto",
+                      padding: "0 8px",
+                      fontSize: 11,
+                      background: b2cExcludeMode ? "#fee2e2" : undefined,
+                      color: b2cExcludeMode ? "#dc2626" : undefined,
+                      borderColor: b2cExcludeMode ? "#fca5a5" : undefined,
+                      fontWeight: b2cExcludeMode ? 700 : undefined,
+                    }}
+                  >
+                    {b2cExcludeMode ? "🚫 제외 편집중" : "B2C 제외 편집"}
+                  </button>
                 </div>
               </div>
 
@@ -939,20 +968,32 @@ export default function ReservationWizard({
                   const bookings = bookingsByDate.get(iso) ?? [];
                   const selected = data.signingDate === iso;
                   const isToday = iso === todayIso;
+                  const isExcluded = b2cExcludedDates.has(iso);
                   return (
                     <button
                       key={iso}
                       type="button"
-                      onClick={() => patch("signingDate", iso)}
+                      onClick={() => {
+                        if (b2cExcludeMode) {
+                          toggleB2cExcluded(iso);
+                        } else {
+                          patch("signingDate", iso);
+                        }
+                      }}
+                      title={b2cExcludeMode ? (isExcluded ? "제외됨 — 클릭하면 가능으로" : "클릭하면 B2C 제외") : undefined}
                       style={{
                         position: "relative",
                         height: 44,
-                        background: selected
+                        background: isExcluded
+                          ? "#fef2f2"
+                          : selected
                           ? "var(--v4-bg-info)"
                           : isToday
                           ? "var(--v4-bg-secondary)"
                           : "var(--v4-bg-primary)",
-                        border: selected
+                        border: isExcluded
+                          ? "2px solid #dc2626"
+                          : selected
                           ? "1.5px solid var(--v4-text-info)"
                           : "1px solid var(--v4-border-tertiary)",
                         borderRadius: 6,
@@ -967,12 +1008,14 @@ export default function ReservationWizard({
                         style={{
                           fontSize: 11.5,
                           fontWeight: selected || isToday ? 700 : 500,
-                          color:
-                            d.getDay() === 0
-                              ? "var(--v4-danger)"
-                              : d.getDay() === 6
-                              ? "var(--v4-text-info)"
-                              : "var(--v4-text-primary)",
+                          color: isExcluded
+                            ? "#dc2626"
+                            : d.getDay() === 0
+                            ? "var(--v4-danger)"
+                            : d.getDay() === 6
+                            ? "var(--v4-text-info)"
+                            : "var(--v4-text-primary)",
+                          textDecoration: isExcluded ? "line-through" : undefined,
                         }}
                       >
                         {d.getDate()}
@@ -1417,8 +1460,15 @@ export default function ReservationWizard({
               />
             </section>
 
-            {/* B2C 자서 슬롯 — 입주민 앱으로 가능 일정 N개 제시 → 선택 → 확정 */}
-            {id && <SigningSlotInline consultationId={id} />}
+            {/* B2C 자서 캘린더 — 위 자서일 선택 캘린더에서 [B2C 제외 편집] 모드로 날짜 토글 */}
+            {id && (
+              <SigningSlotInline
+                consultationId={id}
+                excludedDates={b2cExcludedDates}
+                setExcludedDates={setB2cExcludedDates}
+                excludeMode={b2cExcludeMode}
+              />
+            )}
           </div>
         </div>
       </main>

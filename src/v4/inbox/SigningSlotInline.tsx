@@ -1,61 +1,45 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
 const DEFAULT_TIMES = ["09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00"];
 const DEFAULT_LOCATION = "해당 은행 지점";
-const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
-
-const ymd = (d: Date) => {
-  const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-};
-
-const todayPlus = (n: number) => {
-  const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() + n);
-  return d;
-};
 
 interface Props {
   consultationId: string;
+  /** 위 캘린더에서 lift up 된 제외 날짜 (이 컴포넌트는 표시·저장만 담당) */
+  excludedDates: Set<string>;
+  setExcludedDates: (s: Set<string>) => void;
+  /** 부모가 캘린더 표시 모드 토글 가능하도록 */
+  excludeMode: boolean;
 }
 
 /**
- * 자서 일정 캘린더 (v2 — opt-out 방식).
- * - 캘린더에서 클릭 = 가능/제외 토글
- * - 기본: window 안의 모든 날짜가 가능 (주말 포함, 상담사 의지대로)
- * - 시간대/장소는 별도로 설정
- * - 같은 은행의 다른 상담건 자서 예약은 작은 배지로 표시
- * - 입주민이 선택한 일정은 강조 + 확정 버튼
+ * 자서 일정 캘린더 v2 — 설정 패널 (캘린더는 위 자서일 선택 캘린더와 공유).
+ * 시간대/장소 설정 + 입주민 선택 표시 + 공개/확정 버튼만 담당.
  */
-export default function SigningSlotInline({ consultationId }: Props) {
+export default function SigningSlotInline({ consultationId, excludedDates, setExcludedDates, excludeMode }: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [windowStart, setWindowStart] = useState<string>(ymd(todayPlus(3)));
-  const [windowEnd, setWindowEnd] = useState<string>(ymd(todayPlus(30)));
-  const [excludedDates, setExcludedDates] = useState<Set<string>>(new Set());
+  const [windowStart, setWindowStart] = useState<string>("");
+  const [windowEnd, setWindowEnd] = useState<string>("");
   const [availableTimes, setAvailableTimes] = useState<Set<string>>(new Set(DEFAULT_TIMES));
   const [locations, setLocations] = useState<string[]>([DEFAULT_LOCATION]);
-  const [bookings, setBookings] = useState<Record<string, Array<{ time: string; customer: string }>>>({});
-  // 입주민 선택분
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   const [confirmedAt, setConfirmedAt] = useState<string | null>(null);
   const [signingDateConfirmed, setSigningDateConfirmed] = useState<string | null>(null);
-  // 캘린더 표시 월 (0-based month, year)
-  const [viewYear, setViewYear] = useState(new Date().getFullYear());
-  const [viewMonth, setViewMonth] = useState(new Date().getMonth());
 
   const reload = () => {
     setLoading(true);
-    return Promise.all([
-      api.getConsultationById(consultationId),
-      api.getOtherSigningBookings(consultationId).catch(() => ({})),
-    ]).then(([c, bookingsData]: any) => {
-      if (c.signing_window_start) setWindowStart(c.signing_window_start);
-      if (c.signing_window_end) setWindowEnd(c.signing_window_end);
+    return api.getConsultationById(consultationId).then((c: any) => {
+      const today = new Date(); today.setHours(0,0,0,0);
+      const winStart = c.signing_window_start ?? new Date(today.getTime() + 3*86400000).toISOString().slice(0,10);
+      const winEnd = c.signing_window_end ?? new Date(today.getTime() + 30*86400000).toISOString().slice(0,10);
+      setWindowStart(winStart);
+      setWindowEnd(winEnd);
       try {
         if (c.signing_excluded_dates) setExcludedDates(new Set(JSON.parse(c.signing_excluded_dates)));
       } catch {}
@@ -70,34 +54,12 @@ export default function SigningSlotInline({ consultationId }: Props) {
       setSelectedLocation(c.signing_selected_location_str ?? null);
       setConfirmedAt(c.signing_confirmed_at ?? null);
       setSigningDateConfirmed(c.signing_date ?? null);
-      setBookings(bookingsData || {});
     }).catch(() => toast.error("자서 캘린더 정보 조회 실패"))
       .finally(() => setLoading(false));
   };
 
   useEffect(() => { reload(); }, [consultationId]);
 
-  // 캘린더 그리드 계산
-  const calendarDays = useMemo(() => {
-    const first = new Date(viewYear, viewMonth, 1);
-    const last = new Date(viewYear, viewMonth + 1, 0);
-    const startPad = first.getDay(); // 일요일=0
-    const totalDays = last.getDate();
-    const cells: Array<Date | null> = [];
-    for (let i = 0; i < startPad; i++) cells.push(null);
-    for (let d = 1; d <= totalDays; d++) cells.push(new Date(viewYear, viewMonth, d));
-    while (cells.length % 7 !== 0) cells.push(null);
-    return cells;
-  }, [viewYear, viewMonth]);
-
-  const isInWindow = (iso: string) => iso >= windowStart && iso <= windowEnd;
-
-  const toggleExcluded = (iso: string) => {
-    if (confirmedAt) return;
-    const next = new Set(excludedDates);
-    if (next.has(iso)) next.delete(iso); else next.add(iso);
-    setExcludedDates(next);
-  };
   const toggleTime = (t: string) => {
     if (confirmedAt) return;
     const next = new Set(availableTimes);
@@ -121,7 +83,6 @@ export default function SigningSlotInline({ consultationId }: Props) {
         available_locations: locations.filter(l => l.trim()),
       });
       toast.success("자서 캘린더 공개 — 입주민 앱에 푸시 발송됨");
-      // 새 설정 시 입주민 선택 초기화
       setSelectedDate(null); setSelectedTime(null); setSelectedLocation(null);
       setConfirmedAt(null);
     } catch (e: any) {
@@ -163,7 +124,7 @@ export default function SigningSlotInline({ consultationId }: Props) {
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
         <div style={SECTION_TITLE_STYLE}>📅 입주민 앱 자서 캘린더 (B2C)</div>
         <span style={{ fontSize: 11, color: "var(--v4-text-tertiary)" }}>
-          기본 가능 · 안 되는 날만 클릭 제외
+          {excludeMode ? "🚫 캘린더 클릭 = 제외 토글" : "캘린더 헤더의 [B2C 제외 편집] 클릭 후 날짜 선택"}
         </span>
       </div>
 
@@ -171,7 +132,7 @@ export default function SigningSlotInline({ consultationId }: Props) {
         <p style={{ fontSize: 12, color: "#9ca3af", padding: "20px 0", textAlign: "center" }}>불러오는 중...</p>
       ) : (
         <>
-          {/* 확정된 경우 */}
+          {/* 확정 */}
           {confirmedAt && (
             <div style={{ background: "#dcfce7", border: "1px solid #86efac", borderRadius: 10, padding: 12, marginBottom: 12 }}>
               <span style={{ background: "#16a34a", color: "white", fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, display: "inline-flex", alignItems: "center", gap: 4 }}>
@@ -199,74 +160,23 @@ export default function SigningSlotInline({ consultationId }: Props) {
             </div>
           )}
 
-          {/* 캘린더 헤더 */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-            <button onClick={() => { const d = new Date(viewYear, viewMonth - 1, 1); setViewYear(d.getFullYear()); setViewMonth(d.getMonth()); }}
-              style={{ background: "none", border: "none", cursor: "pointer", padding: 4, fontSize: 16 }}>‹</button>
-            <span style={{ fontSize: 13, fontWeight: 700 }}>{viewYear}.{String(viewMonth + 1).padStart(2, "0")}</span>
-            <button onClick={() => { const d = new Date(viewYear, viewMonth + 1, 1); setViewYear(d.getFullYear()); setViewMonth(d.getMonth()); }}
-              style={{ background: "none", border: "none", cursor: "pointer", padding: 4, fontSize: 16 }}>›</button>
-          </div>
-
-          {/* 캘린더 그리드 */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 12 }}>
-            {WEEKDAY_LABELS.map((w, i) => (
-              <div key={w} style={{
-                fontSize: 10, fontWeight: 700, textAlign: "center", padding: "4px 0",
-                color: i === 0 ? "#dc2626" : i === 6 ? "#1d4ed8" : "var(--v4-text-tertiary)",
-              }}>{w}</div>
-            ))}
-            {calendarDays.map((d, i) => {
-              if (!d) return <div key={i} />;
-              const iso = ymd(d);
-              const inWin = isInWindow(iso);
-              const excluded = excludedDates.has(iso);
-              const dateBookings = bookings[iso] || [];
-              const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-              const dim = !inWin || excluded;
-              return (
-                <button
-                  key={i}
-                  onClick={() => inWin && toggleExcluded(iso)}
-                  disabled={!inWin || !!confirmedAt}
-                  style={{
-                    background: dim ? "#f3f4f6" : "white",
-                    border: excluded ? "2px solid #dc2626" : "1px solid #e5e7eb",
-                    borderRadius: 6,
-                    padding: "4px 2px",
-                    minHeight: 42,
-                    cursor: inWin && !confirmedAt ? "pointer" : "default",
-                    opacity: !inWin ? 0.4 : 1,
-                    fontFamily: "inherit",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "flex-start",
-                    gap: 2,
-                  }}
-                  title={inWin ? (excluded ? "제외됨 — 클릭하여 가능으로 변경" : "가능 — 클릭하여 제외") : "표시 기간 외"}
-                >
-                  <span style={{
-                    fontSize: 11.5,
-                    fontWeight: 600,
-                    color: excluded ? "#dc2626" : isWeekend ? (d.getDay() === 0 ? "#dc2626" : "#1d4ed8") : "var(--v4-text-primary)",
-                    textDecoration: excluded ? "line-through" : "none",
-                  }}>
-                    {d.getDate()}
-                  </span>
-                  {dateBookings.length > 0 && (
-                    <span style={{
-                      fontSize: 9,
-                      color: "#92400e",
-                      background: "#fef3c7",
-                      padding: "0 3px",
-                      borderRadius: 3,
-                      fontWeight: 700,
-                    }}>{dateBookings.length}건</span>
-                  )}
-                </button>
-              );
-            })}
+          {/* 표시기간 + 제외 카운트 */}
+          <div style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "6px 10px",
+            background: "var(--v4-bg-secondary)",
+            borderRadius: 6,
+            fontSize: 11.5,
+            marginBottom: 12,
+          }}>
+            <span style={{ color: "var(--v4-text-secondary)" }}>
+              표시 기간: <b>{windowStart}</b> ~ <b>{windowEnd}</b>
+            </span>
+            <span style={{ color: "#dc2626", fontWeight: 600 }}>
+              🚫 제외 {excludedDates.size}일
+            </span>
           </div>
 
           {/* 시간대 칩 */}
@@ -333,7 +243,7 @@ export default function SigningSlotInline({ consultationId }: Props) {
           )}
 
           <p style={{ fontSize: 10.5, color: "var(--v4-text-tertiary)", margin: "8px 0 0 0", lineHeight: 1.5 }}>
-            ※ 빨간 테두리 = 제외된 날짜 · 노란 배지 = 같은 은행 다른 상담건 자서 예약 수
+            ※ 안 되는 날은 위 자서일 선택 캘린더에서 [B2C 제외 편집] 모드로 클릭하여 표시
           </p>
         </>
       )}

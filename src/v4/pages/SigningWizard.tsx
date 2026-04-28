@@ -5,8 +5,10 @@ import { toast } from "sonner";
 import { Kbd } from "../components/Kbd";
 import {
   getSigningFixture,
+  DOCUMENT_CATEGORY_LABEL,
   type DocStatus,
   type DocumentItem,
+  type DocumentCategory,
   type SignItem,
   type SigningData,
 } from "../wizard/signingFixtures";
@@ -389,56 +391,134 @@ export default function SigningWizard({
           </span>
         </div>
 
-        {/* Documents table */}
+        {/* Documents table — 카테고리별 그룹 + 매수/발급처 컬럼 */}
         <Card title={`지참 서류 (${docTotals.ready}/${docTotals.total})`} pad={0}>
-          <TableHeader cols="40px 1fr 70px 280px 110px">
+          <TableHeader cols="40px 1.4fr 50px 50px 130px 1fr 95px">
             <span></span>
             <span>서류명</span>
             <span style={{ textAlign: "center" }}>필수</span>
+            <span style={{ textAlign: "center" }}>매수</span>
+            <span>발급처</span>
             <span>비고</span>
             <span style={{ textAlign: "center" }}>상태</span>
           </TableHeader>
-          {data.documents.map((doc, i) => (
-            <div
-              key={doc.id}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "40px 1fr 70px 280px 110px",
-                columnGap: 16,
-                alignItems: "center",
-                padding: "4px 14px",
-                borderBottom: "1px solid var(--v4-border-tertiary)",
-                fontSize: 12.5,
-                minHeight: 32,
-                background:
-                  doc.status === "missing"
-                    ? "var(--v4-bg-danger)"
-                    : doc.status === "received"
-                    ? "transparent"
-                    : "transparent",
-              }}
-            >
-              <StatusToggle
-                status={doc.status}
-                onChange={(s) => updateDoc(i, { status: s })}
-              />
-              <Input
-                value={doc.name}
-                onChange={(v) => updateDoc(i, { name: v })}
-                medium
-              />
-              <span style={{ textAlign: "center", fontSize: 11, color: doc.required ? "var(--v4-danger)" : "var(--v4-text-tertiary)", fontWeight: 600 }}>
-                {doc.required ? "필수" : "선택"}
-              </span>
-              <Input
-                value={doc.note ?? ""}
-                onChange={(v) => updateDoc(i, { note: v })}
-                placeholder="—"
-                tertiary
-              />
-              <StatusBadge status={doc.status} />
-            </div>
-          ))}
+          {(() => {
+            const ORDER: Array<DocumentCategory> = [
+              "공통", "소득_재직자", "소득_사업자", "소득_기타", "배우자_재직자", "배우자_사업자",
+            ];
+            const elements: React.ReactNode[] = [];
+            // 글로벌 인덱스 추적 (updateDoc 가 doc 의 위치 인덱스 사용)
+            let globalIdx = 0;
+            const docsWithIndex = data.documents.map((d, i) => ({ doc: d, i }));
+            // 카테고리별 그룹
+            ORDER.forEach(cat => {
+              const items = docsWithIndex.filter(({ doc }) => (doc.category ?? "공통") === cat);
+              if (items.length === 0) return;
+              elements.push(
+                <div key={`hdr-${cat}`} style={{
+                  padding: "6px 14px",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: cat.startsWith("배우자") ? "#7c2d12" : cat.startsWith("소득") ? "#1d4ed8" : "var(--v4-text-secondary)",
+                  background: "var(--v4-bg-secondary)",
+                  borderBottom: "1px solid var(--v4-border-tertiary)",
+                }}>
+                  {DOCUMENT_CATEGORY_LABEL[cat]}
+                  {(cat === "소득_재직자" || cat === "소득_사업자" || cat === "소득_기타") && (
+                    <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 600, color: "var(--v4-text-tertiary)" }}>· 택1</span>
+                  )}
+                </div>
+              );
+              items.forEach(({ doc, i }) => {
+                elements.push(
+                  <div
+                    key={doc.id}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "40px 1.4fr 50px 50px 130px 1fr 95px",
+                      columnGap: 12,
+                      alignItems: "center",
+                      padding: "4px 14px",
+                      borderBottom: "1px solid var(--v4-border-tertiary)",
+                      fontSize: 12.5,
+                      minHeight: 32,
+                      background: doc.status === "missing" ? "var(--v4-bg-danger)" : "transparent",
+                    }}
+                  >
+                    <StatusToggle
+                      status={doc.status}
+                      onChange={(s) => updateDoc(i, { status: s })}
+                    />
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                      <Input
+                        value={doc.name}
+                        onChange={(v) => updateDoc(i, { name: v })}
+                        medium
+                      />
+                      {doc.isOriginal && (
+                        <span style={{
+                          flexShrink: 0,
+                          padding: "1px 5px",
+                          fontSize: 9.5,
+                          fontWeight: 700,
+                          color: "#dc2626",
+                          background: "#fee2e2",
+                          borderRadius: 3,
+                        }}>원본</span>
+                      )}
+                    </div>
+                    <span style={{ textAlign: "center", fontSize: 11, color: doc.required ? "var(--v4-danger)" : "var(--v4-text-tertiary)", fontWeight: 600 }}>
+                      {doc.required ? "필수" : "선택"}
+                    </span>
+                    <span style={{ textAlign: "center", fontSize: 12, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                      {doc.copies ?? "-"}
+                    </span>
+                    <span style={{ fontSize: 11, color: "var(--v4-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {doc.issuer ?? "-"}
+                    </span>
+                    <Input
+                      value={doc.note ?? ""}
+                      onChange={(v) => updateDoc(i, { note: v })}
+                      placeholder="—"
+                      tertiary
+                    />
+                    <StatusBadge status={doc.status} />
+                  </div>
+                );
+                globalIdx++;
+              });
+            });
+            // 카테고리 없는 레거시 항목
+            const uncategorized = docsWithIndex.filter(({ doc }) => !doc.category);
+            uncategorized.forEach(({ doc, i }) => {
+              elements.push(
+                <div
+                  key={doc.id}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "40px 1.4fr 50px 50px 130px 1fr 95px",
+                    columnGap: 12,
+                    alignItems: "center",
+                    padding: "4px 14px",
+                    borderBottom: "1px solid var(--v4-border-tertiary)",
+                    fontSize: 12.5,
+                    minHeight: 32,
+                  }}
+                >
+                  <StatusToggle status={doc.status} onChange={(s) => updateDoc(i, { status: s })} />
+                  <Input value={doc.name} onChange={(v) => updateDoc(i, { name: v })} medium />
+                  <span style={{ textAlign: "center", fontSize: 11, color: doc.required ? "var(--v4-danger)" : "var(--v4-text-tertiary)", fontWeight: 600 }}>
+                    {doc.required ? "필수" : "선택"}
+                  </span>
+                  <span style={{ textAlign: "center", fontSize: 12, fontWeight: 600 }}>{doc.copies ?? "-"}</span>
+                  <span style={{ fontSize: 11, color: "var(--v4-text-secondary)" }}>{doc.issuer ?? "-"}</span>
+                  <Input value={doc.note ?? ""} onChange={(v) => updateDoc(i, { note: v })} placeholder="—" tertiary />
+                  <StatusBadge status={doc.status} />
+                </div>
+              );
+            });
+            return elements;
+          })()}
         </Card>
 
         {/* Sign items */}

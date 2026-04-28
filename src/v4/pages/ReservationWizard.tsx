@@ -9,7 +9,10 @@ import {
   getReservationFixture,
   getRecentLocations,
   pushRecentLocation,
+  DOC_CATEGORY_LABEL,
   type ReservationData,
+  type ReservationDoc,
+  type ReservationDocCategory,
 } from "../wizard/reservationFixtures";
 import { getAllSigningFixtures } from "../wizard/signingFixtures";
 import { useWizardDraft } from "../wizard/useWizardDraft";
@@ -113,6 +116,98 @@ const LABEL_STYLE = {
   color: "var(--v4-text-tertiary)",
   marginBottom: 4,
 };
+
+/** 카테고리별로 필요서류를 묶어 표 형식으로 렌더 */
+function DocumentsTable({ docs }: { docs: ReservationDoc[] }) {
+  // 카테고리 순서 보장
+  const ORDER: ReservationDocCategory[] = [
+    "공통",
+    "소득_재직자",
+    "소득_사업자",
+    "소득_기타",
+    "배우자_재직자",
+    "배우자_사업자",
+  ];
+
+  const grouped = ORDER.map(cat => ({
+    cat,
+    items: docs.filter(d => (d.category ?? "공통") === cat),
+  })).filter(g => g.items.length > 0);
+
+  // 카테고리가 없는 레거시 documents
+  const uncategorized = docs.filter(d => !d.category);
+
+  const noteStyle = {
+    fontSize: 11,
+    color: "var(--v4-text-tertiary)",
+    marginLeft: 4,
+  };
+
+  const renderTable = (items: ReservationDoc[]) => (
+    <table style={{ width: "100%", borderCollapse: "collapse" as const, fontSize: 12 }}>
+      <thead>
+        <tr style={{ background: "var(--v4-bg-secondary)", color: "var(--v4-text-tertiary)" }}>
+          <th style={{ padding: "6px 8px", textAlign: "left", fontWeight: 600, borderBottom: "1px solid var(--v4-border-tertiary)" }}>서류</th>
+          <th style={{ padding: "6px 4px", width: 38, textAlign: "center", fontWeight: 600, borderBottom: "1px solid var(--v4-border-tertiary)" }}>매수</th>
+          <th style={{ padding: "6px 8px", width: 130, textAlign: "left", fontWeight: 600, borderBottom: "1px solid var(--v4-border-tertiary)" }}>발급처</th>
+        </tr>
+      </thead>
+      <tbody>
+        {items.map(doc => (
+          <tr key={doc.id} style={{ borderBottom: "1px solid var(--v4-border-tertiary)" }}>
+            <td style={{ padding: "6px 8px", verticalAlign: "top" as const, lineHeight: 1.4 }}>
+              <span style={{ fontWeight: 500, color: "var(--v4-text-primary)" }}>{doc.name}</span>
+              {doc.isOriginal && (
+                <span style={{
+                  marginLeft: 6,
+                  padding: "1px 6px",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: "#dc2626",
+                  background: "#fee2e2",
+                  borderRadius: 3,
+                }}>원본</span>
+              )}
+              {doc.note && (
+                <div style={{ ...noteStyle, marginLeft: 0, marginTop: 2 }}>— {doc.note}</div>
+              )}
+            </td>
+            <td style={{ padding: "6px 4px", textAlign: "center", verticalAlign: "top" as const, fontVariantNumeric: "tabular-nums" as const, fontWeight: 600 }}>
+              {doc.copies ?? "-"}
+            </td>
+            <td style={{ padding: "6px 8px", verticalAlign: "top" as const, color: "var(--v4-text-secondary)", fontSize: 11.5 }}>
+              {doc.issuer ?? "-"}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {uncategorized.length > 0 && (
+        <div>{renderTable(uncategorized)}</div>
+      )}
+      {grouped.map(({ cat, items }) => (
+        <div key={cat}>
+          <p style={{
+            margin: "0 0 4px 0",
+            fontSize: 11.5,
+            fontWeight: 700,
+            color: cat.startsWith("배우자") ? "#7c2d12" : cat.startsWith("소득") ? "#1d4ed8" : "var(--v4-text-primary)",
+          }}>
+            {DOC_CATEGORY_LABEL[cat]}
+            {(cat === "소득_재직자" || cat === "소득_사업자" || cat === "소득_기타") && (
+              <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 600, color: "var(--v4-text-tertiary)" }}>· 소득 유형 택1</span>
+            )}
+          </p>
+          {renderTable(items)}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 type ReservationWizardProps = {
   embed?: boolean;
@@ -1064,46 +1159,34 @@ export default function ReservationWizard({
                   marginBottom: 10,
                 }}
               >
-                <div style={{ ...SECTION_TITLE_STYLE, marginBottom: 0 }}>📋 필요서류 안내</div>
+                <div style={{ ...SECTION_TITLE_STYLE, marginBottom: 0 }}>📋 당사자 준비서류 LIST</div>
                 <span
                   style={{
                     fontSize: 11,
                     color: "var(--v4-text-tertiary)",
                   }}
                 >
-                  자서 당일 지참 안내용
+                  자서 당일 지참 · 차주·담보제공자 각 1세트
                 </span>
               </div>
-              <ol
-                style={{
-                  margin: 0,
-                  padding: "0 0 0 22px",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 5,
-                  color: "var(--v4-text-primary)",
-                }}
-              >
-                {data.documents.map((doc) => (
-                  <li
-                    key={doc.id}
-                    style={{ fontSize: 12.5, lineHeight: 1.45 }}
-                  >
-                    <span style={{ fontWeight: 500 }}>{doc.name}</span>
-                    {doc.note ? (
-                      <span
-                        style={{
-                          marginLeft: 6,
-                          fontSize: 11.5,
-                          color: "var(--v4-text-tertiary)",
-                        }}
-                      >
-                        — {doc.note}
-                      </span>
-                    ) : null}
-                  </li>
-                ))}
-              </ol>
+
+              <DocumentsTable docs={data.documents} />
+
+              <div style={{
+                marginTop: 10,
+                padding: "8px 10px",
+                background: "var(--v4-bg-secondary)",
+                borderRadius: 6,
+                fontSize: 11,
+                color: "var(--v4-text-secondary)",
+                lineHeight: 1.6,
+              }}>
+                <p style={{ margin: 0, fontWeight: 600, color: "var(--v4-text-primary)" }}>⚠️ 주의사항</p>
+                <p style={{ margin: "2px 0 0 0" }}>1. 모든 서류 상 주민등록 뒷 번호 필수 공개</p>
+                <p style={{ margin: 0 }}>2. 발급 매수 확인</p>
+                <p style={{ margin: 0 }}>3. 초본 — 원초본 / 신분증이 없는 미성년 자녀가 계실 경우, 기본증명서(상세)로 발급</p>
+              </div>
+
               <textarea
                 value={data.remark}
                 onChange={(e) => patch("remark", e.target.value)}

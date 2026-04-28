@@ -117,8 +117,13 @@ const LABEL_STYLE = {
   marginBottom: 4,
 };
 
-/** 카테고리별로 필요서류를 묶어 표 형식으로 렌더 */
-function DocumentsTable({ docs }: { docs: ReservationDoc[] }) {
+/** 카테고리별로 필요서류를 묶어 표 형식으로 렌더 (편집 가능) */
+function DocumentsTable({ docs, onChange }: {
+  docs: ReservationDoc[];
+  onChange?: (docs: ReservationDoc[]) => void;
+}) {
+  const editable = !!onChange;
+
   // 카테고리 순서 보장
   const ORDER: ReservationDocCategory[] = [
     "공통",
@@ -132,52 +137,141 @@ function DocumentsTable({ docs }: { docs: ReservationDoc[] }) {
   const grouped = ORDER.map(cat => ({
     cat,
     items: docs.filter(d => (d.category ?? "공통") === cat),
-  })).filter(g => g.items.length > 0);
+  })).filter(g => g.items.length > 0 || editable);
 
-  // 카테고리가 없는 레거시 documents
-  const uncategorized = docs.filter(d => !d.category);
-
-  const noteStyle = {
-    fontSize: 11,
-    color: "var(--v4-text-tertiary)",
-    marginLeft: 4,
+  const updateDoc = (id: string, patch: Partial<ReservationDoc>) => {
+    if (!onChange) return;
+    onChange(docs.map(d => d.id === id ? { ...d, ...patch } : d));
+  };
+  const deleteDoc = (id: string) => {
+    if (!onChange) return;
+    if (!confirm("이 서류를 삭제할까요?")) return;
+    onChange(docs.filter(d => d.id !== id));
+  };
+  const addDoc = (cat: ReservationDocCategory) => {
+    if (!onChange) return;
+    const newDoc: ReservationDoc = {
+      id: `doc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      name: "",
+      copies: 1,
+      issuer: "",
+      category: cat,
+    };
+    onChange([...docs, newDoc]);
   };
 
-  const renderTable = (items: ReservationDoc[]) => (
+  const inputBase = {
+    width: "100%",
+    padding: "4px 6px",
+    border: "1px solid var(--v4-border-secondary)",
+    borderRadius: 4,
+    fontSize: 12,
+    fontFamily: "inherit",
+    boxSizing: "border-box" as const,
+    background: "white",
+  };
+
+  const renderTable = (items: ReservationDoc[], cat?: ReservationDocCategory) => (
     <table style={{ width: "100%", borderCollapse: "collapse" as const, fontSize: 12 }}>
       <thead>
         <tr style={{ background: "var(--v4-bg-secondary)", color: "var(--v4-text-tertiary)" }}>
           <th style={{ padding: "6px 8px", textAlign: "left", fontWeight: 600, borderBottom: "1px solid var(--v4-border-tertiary)" }}>서류</th>
-          <th style={{ padding: "6px 4px", width: 38, textAlign: "center", fontWeight: 600, borderBottom: "1px solid var(--v4-border-tertiary)" }}>매수</th>
+          <th style={{ padding: "6px 4px", width: 50, textAlign: "center", fontWeight: 600, borderBottom: "1px solid var(--v4-border-tertiary)" }}>매수</th>
           <th style={{ padding: "6px 8px", width: 130, textAlign: "left", fontWeight: 600, borderBottom: "1px solid var(--v4-border-tertiary)" }}>발급처</th>
+          {editable && <th style={{ width: 28, borderBottom: "1px solid var(--v4-border-tertiary)" }} />}
         </tr>
       </thead>
       <tbody>
+        {items.length === 0 && (
+          <tr>
+            <td colSpan={editable ? 4 : 3} style={{ padding: 8, textAlign: "center", color: "var(--v4-text-tertiary)", fontSize: 11.5 }}>
+              항목 없음
+            </td>
+          </tr>
+        )}
         {items.map(doc => (
           <tr key={doc.id} style={{ borderBottom: "1px solid var(--v4-border-tertiary)" }}>
             <td style={{ padding: "6px 8px", verticalAlign: "top" as const, lineHeight: 1.4 }}>
-              <span style={{ fontWeight: 500, color: "var(--v4-text-primary)" }}>{doc.name}</span>
-              {doc.isOriginal && (
-                <span style={{
-                  marginLeft: 6,
-                  padding: "1px 6px",
-                  fontSize: 10,
-                  fontWeight: 700,
-                  color: "#dc2626",
-                  background: "#fee2e2",
-                  borderRadius: 3,
-                }}>원본</span>
-              )}
-              {doc.note && (
-                <div style={{ ...noteStyle, marginLeft: 0, marginTop: 2 }}>— {doc.note}</div>
+              {editable ? (
+                <>
+                  <input
+                    type="text"
+                    value={doc.name}
+                    onChange={(e) => updateDoc(doc.id, { name: e.target.value })}
+                    placeholder="서류명"
+                    style={{ ...inputBase, fontWeight: 500 }}
+                  />
+                  <input
+                    type="text"
+                    value={doc.note ?? ""}
+                    onChange={(e) => updateDoc(doc.id, { note: e.target.value || undefined })}
+                    placeholder="비고 (선택)"
+                    style={{ ...inputBase, marginTop: 3, fontSize: 11, color: "var(--v4-text-tertiary)" }}
+                  />
+                  <label style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 3, fontSize: 10.5, color: "var(--v4-text-secondary)", cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={!!doc.isOriginal}
+                      onChange={(e) => updateDoc(doc.id, { isOriginal: e.target.checked || undefined })}
+                      style={{ margin: 0 }}
+                    />
+                    원본 필수
+                  </label>
+                </>
+              ) : (
+                <>
+                  <span style={{ fontWeight: 500, color: "var(--v4-text-primary)" }}>{doc.name}</span>
+                  {doc.isOriginal && (
+                    <span style={{ marginLeft: 6, padding: "1px 6px", fontSize: 10, fontWeight: 700, color: "#dc2626", background: "#fee2e2", borderRadius: 3 }}>원본</span>
+                  )}
+                  {doc.note && (
+                    <div style={{ fontSize: 11, color: "var(--v4-text-tertiary)", marginTop: 2 }}>— {doc.note}</div>
+                  )}
+                </>
               )}
             </td>
             <td style={{ padding: "6px 4px", textAlign: "center", verticalAlign: "top" as const, fontVariantNumeric: "tabular-nums" as const, fontWeight: 600 }}>
-              {doc.copies ?? "-"}
+              {editable ? (
+                <input
+                  type="number"
+                  min={0}
+                  value={doc.copies ?? 0}
+                  onChange={(e) => updateDoc(doc.id, { copies: e.target.value === "" ? undefined : Number(e.target.value) })}
+                  style={{ ...inputBase, textAlign: "center", padding: "4px 2px" }}
+                />
+              ) : (doc.copies ?? "-")}
             </td>
             <td style={{ padding: "6px 8px", verticalAlign: "top" as const, color: "var(--v4-text-secondary)", fontSize: 11.5 }}>
-              {doc.issuer ?? "-"}
+              {editable ? (
+                <input
+                  type="text"
+                  value={doc.issuer ?? ""}
+                  onChange={(e) => updateDoc(doc.id, { issuer: e.target.value || undefined })}
+                  placeholder="발급처"
+                  style={inputBase}
+                />
+              ) : (doc.issuer ?? "-")}
             </td>
+            {editable && (
+              <td style={{ padding: "6px 2px", verticalAlign: "top" as const }}>
+                <button
+                  onClick={() => deleteDoc(doc.id)}
+                  title="삭제"
+                  style={{
+                    background: "#fee2e2",
+                    color: "#dc2626",
+                    border: "none",
+                    borderRadius: 4,
+                    padding: "4px 6px",
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <X size={11} />
+                </button>
+              </td>
+            )}
           </tr>
         ))}
       </tbody>
@@ -185,14 +279,11 @@ function DocumentsTable({ docs }: { docs: ReservationDoc[] }) {
   );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      {uncategorized.length > 0 && (
-        <div>{renderTable(uncategorized)}</div>
-      )}
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {grouped.map(({ cat, items }) => (
         <div key={cat}>
           <p style={{
-            margin: "0 0 4px 0",
+            margin: "0 0 6px 0",
             fontSize: 11.5,
             fontWeight: 700,
             color: cat.startsWith("배우자") ? "#7c2d12" : cat.startsWith("소득") ? "#1d4ed8" : "var(--v4-text-primary)",
@@ -202,7 +293,26 @@ function DocumentsTable({ docs }: { docs: ReservationDoc[] }) {
               <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 600, color: "var(--v4-text-tertiary)" }}>· 소득 유형 택1</span>
             )}
           </p>
-          {renderTable(items)}
+          {renderTable(items, cat)}
+          {editable && (
+            <button
+              onClick={() => addDoc(cat)}
+              style={{
+                marginTop: 4,
+                width: "100%",
+                padding: "5px 8px",
+                background: "white",
+                border: "1px dashed var(--v4-border-secondary)",
+                borderRadius: 4,
+                fontSize: 11.5,
+                color: "var(--v4-text-secondary)",
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              + 행 추가
+            </button>
+          )}
         </div>
       ))}
     </div>
@@ -1265,7 +1375,10 @@ export default function ReservationWizard({
                 </div>
 
                 <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
-                  <DocumentsTable docs={data.documents} />
+                  <DocumentsTable
+                    docs={data.documents}
+                    onChange={(docs) => patch("documents", docs)}
+                  />
 
                   <div style={{
                     marginTop: 14,

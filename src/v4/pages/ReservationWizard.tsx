@@ -237,6 +237,7 @@ export default function ReservationWizard({
   const id = embedId ?? params.id;
   const navigate = useNavigate();
   const seed = taskToSeed(embedTask);
+  const [docsModalOpen, setDocsModalOpen] = useState(false);
   const { data, setData, savedAt, clearDraft } = useWizardDraft<ReservationData>(
     "reservation",
     id ?? "",
@@ -1149,7 +1150,7 @@ export default function ReservationWizard({
               />
             </section>
 
-            {/* Documents — 안내 (체크 없음) */}
+            {/* Documents — 컴팩트 요약 + 보기 버튼 (전체 LIST는 모달) */}
             <section style={SECTION_STYLE}>
               <div
                 style={{
@@ -1159,33 +1160,38 @@ export default function ReservationWizard({
                   marginBottom: 10,
                 }}
               >
-                <div style={{ ...SECTION_TITLE_STYLE, marginBottom: 0 }}>📋 당사자 준비서류 LIST</div>
-                <span
-                  style={{
-                    fontSize: 11,
-                    color: "var(--v4-text-tertiary)",
-                  }}
-                >
-                  자서 당일 지참 · 차주·담보제공자 각 1세트
+                <div style={{ ...SECTION_TITLE_STYLE, marginBottom: 0 }}>📋 당사자 준비서류</div>
+                <span style={{ fontSize: 11, color: "var(--v4-text-tertiary)" }}>
+                  총 {data.documents.length}항목
                 </span>
               </div>
 
-              <DocumentsTable docs={data.documents} />
-
-              <div style={{
-                marginTop: 10,
-                padding: "8px 10px",
-                background: "var(--v4-bg-secondary)",
-                borderRadius: 6,
-                fontSize: 11,
-                color: "var(--v4-text-secondary)",
-                lineHeight: 1.6,
-              }}>
-                <p style={{ margin: 0, fontWeight: 600, color: "var(--v4-text-primary)" }}>⚠️ 주의사항</p>
-                <p style={{ margin: "2px 0 0 0" }}>1. 모든 서류 상 주민등록 뒷 번호 필수 공개</p>
-                <p style={{ margin: 0 }}>2. 발급 매수 확인</p>
-                <p style={{ margin: 0 }}>3. 초본 — 원초본 / 신분증이 없는 미성년 자녀가 계실 경우, 기본증명서(상세)로 발급</p>
-              </div>
+              <button
+                type="button"
+                onClick={() => setDocsModalOpen(true)}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "10px 12px",
+                  background: "var(--v4-bg-secondary)",
+                  border: "1px solid var(--v4-border-secondary)",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                <div style={{ textAlign: "left" }}>
+                  <p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, color: "var(--v4-text-primary)" }}>
+                    📋 준비서류 LIST 자세히 보기
+                  </p>
+                  <p style={{ margin: "2px 0 0 0", fontSize: 11, color: "var(--v4-text-tertiary)" }}>
+                    공통 14 · 재직자 3 · 사업자 3 · 기타 3 · 배우자 6
+                  </p>
+                </div>
+                <ChevronRight size={14} style={{ color: "var(--v4-text-tertiary)" }} />
+              </button>
 
               <textarea
                 value={data.remark}
@@ -1196,7 +1202,7 @@ export default function ReservationWizard({
                   ...INPUT_STYLE,
                   height: "auto",
                   padding: "8px 10px",
-                  marginTop: 12,
+                  marginTop: 10,
                   resize: "vertical" as const,
                   fontFamily: "inherit",
                 }}
@@ -1208,6 +1214,123 @@ export default function ReservationWizard({
           </div>
         </div>
       </main>
+
+      {/* 준비서류 LIST 우측 슬라이드 패널 */}
+      {docsModalOpen
+        ? createPortal(
+            <div
+              onClick={(e) => {
+                if (e.target === e.currentTarget) setDocsModalOpen(false);
+              }}
+              style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(15, 23, 42, 0.45)",
+                zIndex: 50,
+                display: "flex",
+                justifyContent: "flex-end",
+              }}
+            >
+              <div
+                style={{
+                  width: "min(560px, 100vw)",
+                  height: "100vh",
+                  background: "var(--v4-bg-primary)",
+                  display: "flex",
+                  flexDirection: "column",
+                  boxShadow: "-8px 0 24px rgba(0,0,0,0.15)",
+                  animation: "slideInRight 0.2s ease-out",
+                }}
+              >
+                <div style={{
+                  padding: "16px 20px",
+                  borderBottom: "1px solid var(--v4-border-tertiary)",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}>
+                  <div>
+                    <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>📋 당사자 준비서류 LIST</h2>
+                    <p style={{ margin: "2px 0 0 0", fontSize: 11, color: "var(--v4-text-tertiary)" }}>
+                      자서 당일 지참 · 차주·담보제공자 각 1세트
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setDocsModalOpen(false)}
+                    style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}
+                    title="닫기 (ESC)"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
+                  <DocumentsTable docs={data.documents} />
+
+                  <div style={{
+                    marginTop: 14,
+                    padding: "10px 12px",
+                    background: "var(--v4-bg-secondary)",
+                    borderRadius: 8,
+                    fontSize: 12,
+                    color: "var(--v4-text-secondary)",
+                    lineHeight: 1.6,
+                  }}>
+                    <p style={{ margin: 0, fontWeight: 700, color: "var(--v4-text-primary)" }}>⚠️ 주의사항</p>
+                    <p style={{ margin: "4px 0 0 0" }}>1. 모든 서류 상 주민등록 뒷 번호 필수 공개</p>
+                    <p style={{ margin: 0 }}>2. 발급 매수 확인</p>
+                    <p style={{ margin: 0 }}>3. 초본 — 원초본 / 신분증이 없는 미성년 자녀가 계실 경우, 기본증명서(상세)로 발급</p>
+                  </div>
+                </div>
+
+                <div style={{
+                  padding: 12,
+                  borderTop: "1px solid var(--v4-border-tertiary)",
+                  display: "flex",
+                  gap: 8,
+                  justifyContent: "flex-end",
+                }}>
+                  <button
+                    onClick={() => window.print()}
+                    style={{
+                      background: "white",
+                      border: "1px solid var(--v4-border-secondary)",
+                      borderRadius: 6,
+                      padding: "8px 14px",
+                      fontSize: 12.5,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    🖨 인쇄
+                  </button>
+                  <button
+                    onClick={() => setDocsModalOpen(false)}
+                    style={{
+                      background: "var(--v4-text-primary)",
+                      color: "white",
+                      border: "none",
+                      borderRadius: 6,
+                      padding: "8px 14px",
+                      fontSize: 12.5,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    닫기
+                  </button>
+                </div>
+                <style>{`
+                  @keyframes slideInRight {
+                    from { transform: translateX(100%); }
+                    to { transform: translateX(0); }
+                  }
+                `}</style>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
 
       {previewOpen
         ? createPortal(

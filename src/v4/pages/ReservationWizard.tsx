@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, ChevronLeft, ChevronRight, AlertTriangle, Copy, Check, RotateCcw, X, MessageSquare } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, AlertTriangle, Copy, Check, RotateCcw, X, MessageSquare, CalendarClock } from "lucide-react";
+import SigningSlotDialog from "../inbox/SigningSlotDialog";
 import { toast } from "sonner";
 import { Kbd } from "../components/Kbd";
 import {
@@ -141,6 +142,7 @@ export default function ReservationWizard({
   const id = embedId ?? params.id;
   const navigate = useNavigate();
   const seed = taskToSeed(embedTask);
+  const [slotDialogOpen, setSlotDialogOpen] = useState(false);
   const { data, setData, savedAt, clearDraft } = useWizardDraft<ReservationData>(
     "reservation",
     id ?? "",
@@ -447,6 +449,32 @@ export default function ReservationWizard({
             <Copy size={13} strokeWidth={1.8} />
             문자 안내문
           </button>
+          {/* B2C 자서 일정 슬롯 관리 */}
+          {id && (
+            <button
+              type="button"
+              onClick={() => setSlotDialogOpen(true)}
+              title="입주민 앱으로 가능한 자서 일정 N개를 제시 → 입주민 선택 → 확정 (B2C 워크플로)"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                height: 28,
+                padding: "0 12px",
+                fontSize: 12.5,
+                color: "#fff",
+                background: "#1d4ed8",
+                border: "none",
+                borderRadius: "var(--v4-radius-md)",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                fontWeight: 600,
+              }}
+            >
+              <CalendarClock size={13} strokeWidth={1.8} />
+              자서 일정 (B2C)
+            </button>
+          )}
           <button
             type="button"
             onClick={proceedToSigning}
@@ -1121,6 +1149,15 @@ export default function ReservationWizard({
           </div>
         </div>
       </main>
+
+      {/* B2C 자서 일정 슬롯 다이얼로그 */}
+      {id && (
+        <SigningSlotDialog
+          consultationId={id}
+          open={slotDialogOpen}
+          onClose={() => setSlotDialogOpen(false)}
+        />
+      )}
 
       {previewOpen
         ? createPortal(

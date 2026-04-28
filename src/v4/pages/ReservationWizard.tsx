@@ -348,6 +348,104 @@ export default function ReservationWizard({
   const navigate = useNavigate();
   const seed = taskToSeed(embedTask);
   const [docsModalOpen, setDocsModalOpen] = useState(false);
+
+  /** 깔끔한 인쇄용 HTML 을 새 창에 띄워서 인쇄 — window.print() 가 화면 전체 인쇄하는 문제 회피 */
+  const printDocs = () => {
+    const w = window.open("", "_blank", "width=820,height=1000");
+    if (!w) return;
+
+    const ORDER: ReservationDocCategory[] = [
+      "공통", "소득_재직자", "소득_사업자", "소득_기타", "배우자_재직자", "배우자_사업자",
+    ];
+    const groups = ORDER
+      .map(cat => ({ cat, items: data.documents.filter(d => (d.category ?? "공통") === cat) }))
+      .filter(g => g.items.length > 0);
+
+    const escape = (s: string) => s.replace(/[<>&"]/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c] || c));
+
+    const groupHtml = groups.map(({ cat, items }) => `
+      <h3 class="cat ${cat.startsWith("배우자") ? "sp" : cat.startsWith("소득") ? "income" : ""}">${escape(DOC_CATEGORY_LABEL[cat])}${(cat === "소득_재직자" || cat === "소득_사업자" || cat === "소득_기타") ? ' <span class="hint">· 택1</span>' : ""}</h3>
+      <table>
+        <thead>
+          <tr><th class="name">서류</th><th class="copies">매수</th><th class="issuer">발급처</th></tr>
+        </thead>
+        <tbody>
+          ${items.map(d => `
+            <tr>
+              <td>
+                <div class="doc-name">${escape(d.name)}${d.isOriginal ? ' <span class="orig">[원본]</span>' : ""}</div>
+                ${d.note ? `<div class="note">— ${escape(d.note)}</div>` : ""}
+              </td>
+              <td class="copies">${d.copies ?? "-"}</td>
+              <td>${escape(d.issuer ?? "-")}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    `).join("");
+
+    const html = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>당사자 준비서류 LIST - ${escape(data.customerName)}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; margin: 28px 32px; color: #111827; }
+    h1 { font-size: 18px; margin: 0 0 4px 0; }
+    .sub { font-size: 12px; color: #6b7280; margin: 0 0 16px 0; }
+    .info { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px 16px; padding: 10px 12px; background: #f9fafb; border-radius: 6px; font-size: 12px; margin-bottom: 18px; }
+    .info dt { color: #6b7280; font-weight: 400; }
+    .info dd { margin: 0 0 4px 0; font-weight: 600; }
+    h3.cat { font-size: 13px; font-weight: 700; margin: 18px 0 6px 0; color: #111827; }
+    h3.cat.income { color: #1d4ed8; }
+    h3.cat.sp { color: #7c2d12; }
+    h3.cat .hint { font-size: 10px; font-weight: 600; color: #9ca3af; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    thead tr { background: #f3f4f6; }
+    th, td { padding: 6px 8px; text-align: left; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+    th { font-weight: 600; color: #6b7280; font-size: 11px; }
+    th.copies, td.copies { width: 50px; text-align: center; }
+    th.issuer, td.issuer { width: 150px; }
+    .doc-name { font-weight: 500; }
+    .note { font-size: 11px; color: #6b7280; margin-top: 2px; }
+    .orig { display: inline-block; padding: 0 4px; font-size: 9.5px; font-weight: 700; color: #dc2626; background: #fee2e2; border-radius: 3px; vertical-align: middle; }
+    .warn { margin-top: 18px; padding: 10px 12px; background: #fef3c7; border-left: 3px solid #f59e0b; border-radius: 4px; font-size: 11.5px; line-height: 1.6; }
+    .warn b { color: #92400e; }
+    @media print { body { margin: 16px 18px; } @page { size: A4; margin: 14mm; } }
+  </style>
+</head>
+<body>
+  <h1>📋 당사자 준비서류 LIST</h1>
+  <p class="sub">자서 당일 지참 · 차주·담보제공자 각 1세트</p>
+
+  <dl class="info">
+    <div><dt>계약자</dt><dd>${escape(data.customerName)}</dd></div>
+    <div><dt>단지</dt><dd>${escape(data.complex || "-")}</dd></div>
+    <div><dt>동·호</dt><dd>${escape(data.dongHo || "-")}</dd></div>
+    <div><dt>자서일</dt><dd>${escape(data.signingDate || "-")} ${escape(data.signingTime || "")}</dd></div>
+  </dl>
+
+  ${groupHtml}
+
+  <div class="warn">
+    <b>⚠️ 주의사항</b><br>
+    1. 모든 서류 상 주민등록 뒷 번호 필수 공개<br>
+    2. 발급 매수 확인<br>
+    3. 초본 — 원초본 / 신분증이 없는 미성년 자녀가 계실 경우, 기본증명서(상세)로 발급
+  </div>
+
+  <script>
+    window.addEventListener("load", function() {
+      setTimeout(function() { window.focus(); window.print(); }, 200);
+    });
+  </script>
+</body>
+</html>`;
+
+    w.document.write(html);
+    w.document.close();
+  };
   const { data, setData, savedAt, clearDraft } = useWizardDraft<ReservationData>(
     "reservation",
     id ?? "",
@@ -1404,7 +1502,7 @@ export default function ReservationWizard({
                   justifyContent: "flex-end",
                 }}>
                   <button
-                    onClick={() => window.print()}
+                    onClick={printDocs}
                     style={{
                       background: "white",
                       border: "1px solid var(--v4-border-secondary)",

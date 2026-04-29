@@ -89,6 +89,8 @@ const TAG_TONE: Record<string, string> = {
   지연: "v4-tag-danger",
   신규: "v4-tag-warning",
   미상담: "v4-tag-danger",
+  취소요청: "v4-tag-danger",   // 입주민 취소 요청 — 빨간색 강조
+  취소: "v4-tag-neutral",
 };
 
 const CONTACT_TAGS = new Set(["신규", "미상담", "재연락"]);

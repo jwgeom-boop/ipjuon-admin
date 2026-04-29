@@ -84,7 +84,7 @@ const isReservationTag = (tag?: string) => tag === "예약" || tag === "자서�
 const isSigningTag = (tag?: string) => tag === "자서" || tag === "지연";
 const isExecutionTag = (tag?: string) => tag === "실행";
 const isInboxTag = (tag?: string) =>
-  tag === "신규" || tag === "미상담" || tag === "재연락";
+  tag === "신규" || tag === "미상담" || tag === "재연락" || tag === "취소요청";
 
 // 자서일이 지났는지 판정 (today > signingDate). 자서예약 → 자서 위저드 자동 전환에 사용.
 const isSigningDatePassed = (signingDate?: string) => {

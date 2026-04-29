@@ -41,7 +41,9 @@ const LOAN_STATUS_TO_TAG: Record<string, string> = {
   signing_reservation: "자서예약",
   signing: "자서",
   executing: "실행",
-  done: "완료",          // 대출 실행 완료 (cancel은 의도적으로 제외)
+  done: "완료",          // 대출 실행 완료
+  cancel_requested: "취소요청",  // 입주민이 앱에서 취소 요청 — 상담사 확인 필요
+  cancel: "취소",                // 상담사가 최종 취소 처리
 };
 
 const NEXT_ACTION: Record<string, string> = {
@@ -52,6 +54,8 @@ const NEXT_ACTION: Record<string, string> = {
   signing_reservation: "자서 예정",
   signing: "자서 후 서류 취합",
   executing: "실행 정산 확정",
+  cancel_requested: "🚨 입주민 취소 요청 — 확인 필요",
+  cancel: "취소 처리됨",
   done: "실행 완료",
 };
 

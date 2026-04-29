@@ -432,6 +432,36 @@ export default function SigningWizard({
                 </span>
               );
             })()}
+            {/* 누락 서류 → 입주민 푸시 버튼 (누락 있을 때만) */}
+            {docTotals.missing > 0 && id && (
+              <button
+                type="button"
+                onClick={async () => {
+                  const missingNames = data.documents.filter(d => d.status === "missing").map(d => d.name);
+                  if (missingNames.length === 0) return;
+                  if (!confirm(`누락 ${missingNames.length}건을 입주민에게 푸시 알림 보낼까요?\n\n${missingNames.slice(0,5).join(", ")}${missingNames.length > 5 ? " 외 " + (missingNames.length - 5) + "건" : ""}`)) return;
+                  try {
+                    await api.notifyMissingDocs(id, missingNames);
+                    toast.success("입주민 앱에 누락 알림 발송 완료");
+                  } catch (e: any) {
+                    toast.error(e?.message || "발송 실패");
+                  }
+                }}
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  padding: "3px 8px",
+                  borderRadius: 999,
+                  background: "#fee2e2",
+                  color: "#dc2626",
+                  border: "1px solid #fca5a5",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                📌 누락 {docTotals.missing} → 푸시
+              </button>
+            )}
             <span style={{ fontSize: 12, color: "var(--v4-text-secondary)" }}>
               서류 <strong className="v4-tabular">{docTotals.ready}/{docTotals.total}</strong>
               {docTotals.missing > 0 ? (

@@ -2,6 +2,7 @@ import { ReactNode, useState } from "react";
 import { ClipboardList, MessageSquare, Phone, Check, ExternalLink, CalendarClock } from "lucide-react";
 import type { TaskItem } from "../home/TaskRow";
 import SigningSlotDialog from "./SigningSlotDialog";
+import B2cMessagesPanel from "./B2cMessagesPanel";
 
 const TAG_TONE: Record<string, string> = {
   실행: "v4-tag-success",
@@ -296,6 +297,11 @@ export function InboxDetail({
           {done ? "완료 취소" : "완료"}
           <kbd className="v4-kbd" style={{ marginLeft: 4 }}>e</kbd>
         </button>
+      </div>
+
+      {/* 입주민 메시지 패널 (B2C 양방향) */}
+      <div style={{ marginTop: 12 }}>
+        <B2cMessagesPanel consultationId={task.id} byName={task.assignee} />
       </div>
 
       {/* 자서 일정 슬롯 다이얼로그 (B2C 양방향 워크플로) */}

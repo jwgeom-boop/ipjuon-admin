@@ -77,6 +77,28 @@ export const api = {
     return res.json()
   },
 
+  // 누락 서류 → 입주민 푸시
+  notifyMissingDocs: async (id: string, missing_doc_names: string[]) => {
+    const res = await fetch(`${API_BASE_URL}/bank/consultations/${id}/notify-missing-docs`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ missing_doc_names }),
+    })
+    if (!res.ok) throw new Error('알림 발송 실패')
+    return res.json()
+  },
+
+  // 상담사 → 입주민 메시지 (b2c_messages append + 푸시)
+  sendBankMessage: async (id: string, text: string, by?: string) => {
+    const res = await fetch(`${API_BASE_URL}/bank/consultations/${id}/message`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ text, by }),
+    })
+    if (!res.ok) throw new Error('메시지 전송 실패')
+    return res.json()
+  },
+
   // 공지사항
   getNotices: async () => {
     const res = await fetch(`${API_BASE_URL}/notices`, { headers: getHeaders() })

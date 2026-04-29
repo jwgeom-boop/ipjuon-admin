@@ -25,6 +25,17 @@ function formatMoney(n?: number) {
   return n.toLocaleString("ko-KR") + "원";
 }
 
+/** 주민번호 마스킹 (820103-1******) */
+function maskRrn(rrn?: string) {
+  if (!rrn) return "";
+  const d = rrn.replace(/\D/g, "");
+  if (d.length < 7) return rrn;
+  return d.substring(0, 6) + "-" + d.substring(6, 7) + "******";
+}
+
+const dtStyle: React.CSSProperties = { fontSize: 11, color: "var(--v4-text-tertiary)", margin: 0, fontWeight: 400 };
+const ddStyle: React.CSSProperties = { fontSize: 12, color: "var(--v4-text-primary)", margin: 0, fontWeight: 500 };
+
 function extractSpouse(internalNote?: string): string | undefined {
   if (!internalNote) return undefined;
   const m = internalNote.match(/배우자[:\s]*([0-9-]+)/);
@@ -298,6 +309,39 @@ export function InboxDetail({
           <kbd className="v4-kbd" style={{ marginLeft: 4 }}>e</kbd>
         </button>
       </div>
+
+      {/* B2C 대출신청서 (입주민이 직접 입력한 가심사 정보) */}
+      {task.loanApplicationAt && (
+        <div style={{
+          marginTop: 12,
+          background: "#eff6ff",
+          border: "1px solid #bfdbfe",
+          borderRadius: "var(--v4-radius-md)",
+          padding: "10px 12px",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: "#1e3a8a" }}>
+              📋 입주민 대출신청서 ({new Date(task.loanApplicationAt).toLocaleDateString("ko-KR")})
+            </p>
+          </div>
+          <dl style={{ display: "grid", gridTemplateColumns: "auto 1fr auto 1fr", gap: "4px 10px", fontSize: 11.5, margin: 0 }}>
+            {task.contractor && <><dt style={dtStyle}>계약자</dt><dd style={ddStyle}>{task.contractor}</dd></>}
+            {task.residentNo && <><dt style={dtStyle}>주민번호</dt><dd style={ddStyle}>{maskRrn(task.residentNo)}</dd></>}
+            {task.jointOwnerName && <><dt style={dtStyle}>공동명의</dt><dd style={ddStyle}>{task.jointOwnerName}</dd></>}
+            {task.jointOwnerRrn && <><dt style={dtStyle}>주민번호</dt><dd style={ddStyle}>{maskRrn(task.jointOwnerRrn)}</dd></>}
+            {task.salePriceAmount ? <><dt style={dtStyle}>분양가</dt><dd style={ddStyle}>{formatMoney(task.salePriceAmount)}</dd></> : null}
+            {task.desiredLoan && <><dt style={dtStyle}>희망금액</dt><dd style={ddStyle}>{formatMoney(parseInt(task.desiredLoan, 10) || 0)}</dd></>}
+            {task.loanPeriod && <><dt style={dtStyle}>상환기간</dt><dd style={ddStyle}>{task.loanPeriod}</dd></>}
+            {task.desiredDate && <><dt style={dtStyle}>희망일</dt><dd style={ddStyle}>{task.desiredDate}</dd></>}
+            {task.annualIncomeY1 ? <><dt style={dtStyle}>작년 소득</dt><dd style={ddStyle}>{formatMoney(task.annualIncomeY1)}</dd></> : null}
+            {task.annualIncomeY2 ? <><dt style={dtStyle}>재작년 소득</dt><dd style={ddStyle}>{formatMoney(task.annualIncomeY2)}</dd></> : null}
+            {task.existingCreditLoan ? <><dt style={dtStyle}>신용대출</dt><dd style={ddStyle}>{formatMoney(task.existingCreditLoan)}</dd></> : null}
+            {task.existingCollateralLoan ? <><dt style={dtStyle}>담보대출</dt><dd style={ddStyle}>{formatMoney(task.existingCollateralLoan)}</dd></> : null}
+            {task.existingHomes && <><dt style={dtStyle}>주택보유</dt><dd style={ddStyle}>{task.existingHomes}</dd></>}
+            {task.applicationNotes && <><dt style={dtStyle}>기타</dt><dd style={{ ...ddStyle, gridColumn: "2 / span 3" }}>{task.applicationNotes}</dd></>}
+          </dl>
+        </div>
+      )}
 
       {/* 입주민 메시지 패널 (B2C 양방향) */}
       <div style={{ marginTop: 12 }}>

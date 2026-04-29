@@ -77,6 +77,23 @@ export interface TaskItem {
   residentLastActionType?: string;     // accept/cancel/signing_select/...
   residentDocChecks?: string;          // 쉼표 구분 doc id
   residentDocChecksAt?: string;
+  // B2C 대출신청서
+  contractor?: string;
+  residentNo?: string;
+  jointOwnerName?: string;
+  jointOwnerRrn?: string;
+  jointOwnerTel?: string;
+  desiredLoan?: string;
+  loanPeriod?: string;
+  annualIncomeY1?: number;
+  annualIncomeY2?: number;
+  existingCreditLoan?: number;
+  existingCollateralLoan?: number;
+  applicationNotes?: string;
+  salePriceAmount?: number;
+  desiredDate?: string;
+  existingHomes?: string;
+  loanApplicationAt?: string;
 }
 
 const TAG_TONE: Record<string, string> = {

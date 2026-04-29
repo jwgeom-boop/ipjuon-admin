@@ -31,6 +31,23 @@ export interface ConsultationDto {
   resident_last_action_type?: string | null;
   resident_doc_checks?: string | null;       // 쉼표 구분 doc id
   resident_doc_checks_at?: string | null;
+  // 대출신청서 (B2C 입주민 직접 입력)
+  contractor?: string | null;
+  resident_no?: string | null;
+  joint_owner_name?: string | null;
+  joint_owner_rrn?: string | null;
+  joint_owner_tel?: string | null;
+  desired_loan?: string | null;
+  loan_period?: string | null;
+  annual_income_y1?: number | null;
+  annual_income_y2?: number | null;
+  existing_credit_loan?: number | null;
+  existing_collateral_loan?: number | null;
+  notes?: string | null;
+  sale_price_amount?: number | null;
+  desired_date?: string | null;
+  existing_homes?: string | null;
+  loan_application_at?: string | null;
 }
 
 const LOAN_STATUS_TO_TAG: Record<string, string> = {
@@ -130,6 +147,22 @@ export function mapConsultationToTask(c: ConsultationDto): TaskItem | null {
     residentLastActionType: c.resident_last_action_type ?? undefined,
     residentDocChecks: c.resident_doc_checks ?? undefined,
     residentDocChecksAt: c.resident_doc_checks_at ?? undefined,
+    contractor: c.contractor ?? undefined,
+    residentNo: c.resident_no ?? undefined,
+    jointOwnerName: c.joint_owner_name ?? undefined,
+    jointOwnerRrn: c.joint_owner_rrn ?? undefined,
+    jointOwnerTel: c.joint_owner_tel ?? undefined,
+    desiredLoan: c.desired_loan ?? undefined,
+    loanPeriod: c.loan_period ?? undefined,
+    annualIncomeY1: c.annual_income_y1 ?? undefined,
+    annualIncomeY2: c.annual_income_y2 ?? undefined,
+    existingCreditLoan: c.existing_credit_loan ?? undefined,
+    existingCollateralLoan: c.existing_collateral_loan ?? undefined,
+    applicationNotes: c.notes ?? undefined,
+    salePriceAmount: c.sale_price_amount ?? undefined,
+    desiredDate: c.desired_date ?? undefined,
+    existingHomes: c.existing_homes ?? undefined,
+    loanApplicationAt: c.loan_application_at ?? undefined,
   };
 }
 

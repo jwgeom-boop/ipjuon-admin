@@ -25,6 +25,7 @@ const ACTION_LABEL: Record<string, { emoji: string; text: string; color: string 
   signing_select:          { emoji: "📅", text: "자서 일정 선택",     color: "#1d4ed8" },
   report_middle_interest:  { emoji: "💰", text: "중도금이자 보고",   color: "#d97706" },
   doc_checks:              { emoji: "📋", text: "준비서류 체크",     color: "#0891b2" },
+  message:                 { emoji: "💬", text: "메시지 도착",       color: "#7c3aed" },
 };
 
 const formatRel = (iso: string) => {
